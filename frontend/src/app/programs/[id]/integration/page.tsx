@@ -1706,10 +1706,10 @@ class CardVerifyClient
     info[:macAddresses] = macs
     # Linux specifics
     if RUBY_PLATFORM.include?('linux')
-      info[:cpuSerial] = `cat /proc/cpuinfo | grep Serial | awk '{print $3}'`.strip rescue ''
-      info[:mbSerial] = `cat /sys/class/dmi/id/board_serial 2>/dev/null`.strip rescue ''
-      info[:biosUuid] = `cat /sys/class/dmi/id/product_uuid 2>/dev/null`.strip rescue ''
-      info[:diskSerial] = `lsblk -o SERIAL -nd 2>/dev/null | head -1`.strip rescue ''
+      info[:cpuSerial] = %x(cat /proc/cpuinfo | grep Serial | awk '{print $3}').strip rescue ''
+      info[:mbSerial] = %x(cat /sys/class/dmi/id/board_serial 2>/dev/null).strip rescue ''
+      info[:biosUuid] = %x(cat /sys/class/dmi/id/product_uuid 2>/dev/null).strip rescue ''
+      info[:diskSerial] = %x(lsblk -o SERIAL -nd 2>/dev/null | head -1).strip rescue ''
     end
     info.to_json
   end
