@@ -6,7 +6,7 @@ export const config = {
   frontendUrl: process.env.FRONTEND_URL || 'http://localhost:3000',
   jwtSecret: process.env.JWT_SECRET || 'dev-secret-change-in-production',
   jwtExpiresIn: process.env.JWT_EXPIRES_IN || '7d',
-  aesEncryptionKey: process.env.AES_ENCRYPTION_KEY || '',
+  aesEncryptionKey: (process.env.AES_ENCRYPTION_KEY || '').trim(),
   rootUsername: process.env.ROOT_USERNAME || 'admin',
   rootPassword: process.env.ROOT_PASSWORD || 'admin123',
   rootEmail: process.env.ROOT_EMAIL || 'admin@example.com',

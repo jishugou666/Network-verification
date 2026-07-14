@@ -8,7 +8,7 @@ import { config } from '../config';
 function getAesKey(): Buffer {
   const keyHex = config.aesEncryptionKey;
   if (!keyHex || keyHex.length !== 64) {
-    throw new Error('AES_ENCRYPTION_KEY 必须是 64 字符 hex 字符串（32 字节）');
+    throw new Error(`AES_ENCRYPTION_KEY 必须是 64 字符 hex 字符串（32 字节），当前长度: ${keyHex.length}`);
   }
   return Buffer.from(keyHex, 'hex');
 }
