@@ -1934,8 +1934,8 @@ class CardVerifyClient {
         val nonce = randomNonce()
         payload["appKey"] = APP_KEY; payload["timestamp"] = ts; payload["nonce"] = nonce
         val body = Json.encodeToString(JsonObject(payload.mapValues { JsonPrimitive(it.value.toString()) }))
-        payload["signature"] = hmacSign("$ts$nonce$body")
-        val conn = URL("$API_BASE/api/client/$ep").openConnection() as HttpURLConnection
+        payload["signature"] = hmacSign("\$ts\$nonce\$body")
+        val conn = URL("\$API_BASE/api/client/\$ep").openConnection() as HttpURLConnection
         conn.requestMethod = "POST"; conn.setRequestProperty("Content-Type", "application/json")
         conn.doOutput = true; conn.connectTimeout = 30000
         conn.outputStream.write(Json.encodeToString(JsonObject(payload.mapValues { JsonPrimitive(it.value.toString()) })).toByteArray())
@@ -1957,7 +1957,7 @@ class CardVerifyClient {
 
     fun activate(cardKey: String, username: String, hw: String): Map<String, String> {
         val ch = getChallenge()
-        val cr = "$ch:${hmacSign("$ch$cardKey$username")}"
+        val cr = "\$ch:\${hmacSign("\$ch\$cardKey\$username")}"
         val r = send("activate", mutableMapOf(
             "cardKey" to cardKey, "username" to username,
             "hardwareInfo" to hw, "challengeResponse" to cr
@@ -2012,17 +2012,17 @@ fun main() {
     val hw = CardVerifyClient.collectHardwareInfo()
     try {
         val result = client.activate("YOUR_CARD_KEY", "player_123", hw)
-        println("激活成功! $result")
+        println("激活成功! \$result")
         thread(isDaemon = true) {
             while (true) {
                 Thread.sleep(60000)
-                try { println("心跳: ${client.heartbeat()}") }
+                try { println("心跳: \${client.heartbeat()}") }
                 catch (e: Exception) { break }
             }
         }
         Thread.currentThread().join()
     } catch (e: Exception) {
-        println("错误: ${e.message}")
+        println("错误: \${e.message}")
         client.logout()
     }
 }
@@ -2065,9 +2065,9 @@ class CardVerifyClient {
     payload['timestamp'] = ts;
     payload['nonce'] = nonce;
     final body = jsonEncode(payload);
-    payload['signature'] = _hmacSign('$ts$nonce$body');
+    payload['signature'] = _hmacSign('\$ts\$nonce\$body');
     final resp = await _client.post(
-      Uri.parse('$apiBase/api/client/$ep'),
+      Uri.parse('\$apiBase/api/client/\$ep'),
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode(payload),
     );
@@ -2089,7 +2089,7 @@ class CardVerifyClient {
 
   Future<Map<String, dynamic>> activate(String cardKey, String username, String hw) async {
     final ch = await getChallenge();
-    final cr = '$ch:${_hmacSign('$ch$cardKey$username')}';
+    final cr = '\$ch:\${_hmacSign('\$ch\$cardKey\$username')}';
     final r = await _send('activate', {
       'cardKey': cardKey, 'username': username,
       'hardwareInfo': hw, 'challengeResponse': cr,
@@ -2145,13 +2145,13 @@ void main() async {
   final hw = CardVerifyClient.collectHardwareInfo();
   try {
     final result = await client.activate('YOUR_CARD_KEY', 'player_123', hw);
-    print('激活成功! $result');
+    print('激活成功! \$result');
     Timer.periodic(Duration(seconds: 60), (t) async {
-      try { print('心跳: ${await client.heartbeat()}'); }
+      try { print('心跳: \${await client.heartbeat()}'); }
       catch (e) { t.cancel(); }
     });
   } catch (e) {
-    print('错误: $e');
+    print('错误: \$e');
     await client.logout();
   }
 }
