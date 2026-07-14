@@ -1,0 +1,6 @@
+JWT\_SECRET=9f3c8b2a7e1d4f6c5a8b9c0d2e3f4a5b6c7d8e9f0a1b2c3d4e5f6a7b8c9d0e1f
+
+
+
+AES\_ENCRYPTION\_KEY=a4b7c2e8f1d3e6f9a0b2c5d8e1f4a7b0c3d6e9f2a5b8c1d4e7f0a3b6c9d2e5f8a
+

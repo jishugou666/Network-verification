@@ -25,7 +25,8 @@ router.post('/', async (req: Request, res: Response) => {
     } else {
       fail(res, result.code, result.message, 409);
     }
-  } catch (e) {
+  } catch (e: any) {
+    console.error('[POST /api/programs]', e.message, e.stack);
     serverError(res);
   }
 });
