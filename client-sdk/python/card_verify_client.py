@@ -219,19 +219,215 @@ class CardVerifyClient:
     @staticmethod
     def collect_hardware_info() -> str:
         """
-        采集硬件信息，用于生成设备指纹
-        采集内容：CPU 信息 + 主板序列号 + MAC 地址 + 系统版本
+        采集硬件信息，用于生成设备指纹（Tencent ACE 风格全量采集）
+        采集内容：CPU 序列号/核心数/名称、主板序列号/制造商、
+        BIOS UUID/版本/序列号、硬盘序列号/型号、所有 MAC 地址、
+        内存总量、OS 名称/版本/构建号/安装日期、机器名/架构
         注意：原始信息提交服务端统一哈希，客户端不自行计算指纹
         """
         import uuid
-        info = {
-            'node': platform.node(),
-            'machine': platform.machine(),
-            'processor': platform.processor(),
-            'system': platform.system(),
-            'version': platform.version(),
-            'macAddress': hex(uuid.getnode()),
-        }
+        info = {}
+
+        # ==================== CPU 信息 ====================
+        info['cpuName'] = platform.processor()
+        info['cpuCoresPhysical'] = os.cpu_count()
+        info['cpuArch'] = platform.machine()
+        try:
+            if sys.platform == 'win32':
+                out = subprocess.check_output('wmic cpu get ProcessorId', shell=True).decode()
+                m = re.search(r'[A-Fa-f0-9]{16}', out)
+                info['cpuSerial'] = m.group(0) if m else ''
+                out2 = subprocess.check_output('wmic cpu get NumberOfCores', shell=True).decode()
+                cores = re.findall(r'\d+', out2)
+                info['cpuCores'] = int(cores[1]) if len(cores) > 1 else os.cpu_count() or 0
+            elif sys.platform == 'linux':
+                try:
+                    info['cpuSerial'] = subprocess.check_output(
+                        "cat /proc/cpuinfo | grep Serial | awk '{print $3}'", shell=True).decode().strip()
+                except:
+                    info['cpuSerial'] = ''
+                try:
+                    info['cpuName'] = subprocess.check_output(
+                        "cat /proc/cpuinfo | grep 'model name' | head -1 | cut -d':' -f2", shell=True).decode().strip()
+                except:
+                    pass
+            elif sys.platform == 'darwin':
+                info['cpuSerial'] = subprocess.check_output(
+                    'sysctl -n machdep.cpu.brand_string', shell=True).decode().strip()
+                info['cpuName'] = info['cpuSerial']
+        except:
+            info['cpuSerial'] = ''
+
+        # ==================== 主板信息 ====================
+        try:
+            if sys.platform == 'win32':
+                out = subprocess.check_output('wmic baseboard get SerialNumber', shell=True).decode()
+                lines = [l.strip() for l in out.strip().split('\n') if l.strip()]
+                info['mbSerial'] = lines[1] if len(lines) > 1 else ''
+                mfg = subprocess.check_output('wmic baseboard get Manufacturer', shell=True).decode()
+                mfg_lines = [l.strip() for l in mfg.strip().split('\n') if l.strip()]
+                info['mbManufacturer'] = mfg_lines[1] if len(mfg_lines) > 1 else ''
+                prod = subprocess.check_output('wmic baseboard get Product', shell=True).decode()
+                prod_lines = [l.strip() for l in prod.strip().split('\n') if l.strip()]
+                info['mbProduct'] = prod_lines[1] if len(prod_lines) > 1 else ''
+            elif sys.platform == 'linux':
+                info['mbSerial'] = subprocess.check_output(
+                    'cat /sys/class/dmi/id/board_serial 2>/dev/null', shell=True).decode().strip()
+                info['mbManufacturer'] = subprocess.check_output(
+                    'cat /sys/class/dmi/id/board_vendor 2>/dev/null', shell=True).decode().strip()
+                info['mbProduct'] = subprocess.check_output(
+                    'cat /sys/class/dmi/id/board_name 2>/dev/null', shell=True).decode().strip()
+        except:
+            pass
+
+        # ==================== BIOS 信息 ====================
+        try:
+            if sys.platform == 'win32':
+                info['biosUuid'] = subprocess.check_output(
+                    'wmic csproduct get UUID', shell=True).decode().split('\n')[1].strip()
+                info['biosVersion'] = subprocess.check_output(
+                    'wmic bios get SMBIOSBIOSVersion', shell=True).decode().split('\n')[1].strip()
+                bios_serial = subprocess.check_output(
+                    'wmic bios get SerialNumber', shell=True).decode()
+                bios_lines = [l.strip() for l in bios_serial.strip().split('\n') if l.strip()]
+                info['biosSerial'] = bios_lines[1] if len(bios_lines) > 1 else ''
+            elif sys.platform == 'linux':
+                info['biosUuid'] = subprocess.check_output(
+                    'cat /sys/class/dmi/id/product_uuid 2>/dev/null', shell=True).decode().strip()
+                info['biosVersion'] = subprocess.check_output(
+                    'cat /sys/class/dmi/id/bios_version 2>/dev/null', shell=True).decode().strip()
+                info['biosSerial'] = subprocess.check_output(
+                    'cat /sys/class/dmi/id/bios_date 2>/dev/null', shell=True).decode().strip()
+        except:
+            pass
+
+        # ==================== 硬盘信息 ====================
+        try:
+            if sys.platform == 'win32':
+                disks = subprocess.check_output(
+                    'wmic diskdrive get SerialNumber,Model,Size', shell=True).decode().strip()
+                disk_lines = [l.strip() for l in disks.split('\n') if l.strip() and 'SerialNumber' not in l]
+                disk_serials = []
+                disk_models = []
+                for dl in disk_lines:
+                    parts = dl.split()
+                    if len(parts) >= 2:
+                        disk_serials.append(parts[-1])
+                        disk_models.append(' '.join(parts[:-1]))
+                info['diskSerial'] = disk_serials[0] if disk_serials else ''
+                info['diskModel'] = disk_models[0] if disk_models else ''
+                info['allDiskSerials'] = disk_serials
+            elif sys.platform == 'linux':
+                info['diskSerial'] = subprocess.check_output(
+                    'lsblk -o SERIAL -nd 2>/dev/null | head -1', shell=True).decode().strip()
+                info['diskModel'] = subprocess.check_output(
+                    'lsblk -o MODEL -nd 2>/dev/null | head -1', shell=True).decode().strip()
+                all_serials = subprocess.check_output(
+                    'lsblk -o SERIAL -nd 2>/dev/null', shell=True).decode().strip().split('\n')
+                info['allDiskSerials'] = [s.strip() for s in all_serials if s.strip()]
+            elif sys.platform == 'darwin':
+                info['diskSerial'] = subprocess.check_output(
+                    "system_profiler SPSerialATADataType 2>/dev/null | grep 'Serial Number' | head -1 | awk '{print $NF}'",
+                    shell=True).decode().strip()
+        except:
+            pass
+
+        # ==================== 网络 MAC 地址 ====================
+        try:
+            macs = []
+            if sys.platform == 'linux':
+                # 从 /sys/class/net 读取所有网络接口 MAC
+                net_dir = '/sys/class/net'
+                if os.path.exists(net_dir):
+                    for iface in os.listdir(net_dir):
+                        addr_file = os.path.join(net_dir, iface, 'address')
+                        if os.path.exists(addr_file):
+                            with open(addr_file) as f:
+                                mac = f.read().strip()
+                                if mac and mac != '00:00:00:00:00:00':
+                                    macs.append(mac)
+            elif sys.platform == 'win32':
+                out = subprocess.check_output(
+                    'wmic nic where "PhysicalAdapter=True" get MACAddress', shell=True).decode()
+                for line in out.strip().split('\n'):
+                    line = line.strip()
+                    if line and 'MACAddress' not in line and ':' in line:
+                        macs.append(line.lower())
+            elif sys.platform == 'darwin':
+                out = subprocess.check_output(
+                    "ifconfig | grep ether | awk '{print $2}'", shell=True).decode()
+                for line in out.strip().split('\n'):
+                    if line.strip():
+                        macs.append(line.strip().lower())
+
+            if not macs:
+                # 回退：使用 uuid.getnode()
+                node = uuid.getnode()
+                macs.append(':'.join([f'{(node >> (i * 8)) & 0xff:02x}' for i in range(5, -1, -1)]))
+            info['macAddresses'] = macs
+        except:
+            info['macAddresses'] = [hex(uuid.getnode())]
+
+        # ==================== 内存信息 ====================
+        try:
+            if sys.platform == 'win32':
+                import ctypes
+                kernel32 = ctypes.windll.kernel32
+                class MEMORYSTATUSEX(ctypes.Structure):
+                    _fields_ = [
+                        ('dwLength', ctypes.c_ulong),
+                        ('dwMemoryLoad', ctypes.c_ulong),
+                        ('ullTotalPhys', ctypes.c_ulonglong),
+                        ('ullAvailPhys', ctypes.c_ulonglong),
+                        ('ullTotalPageFile', ctypes.c_ulonglong),
+                        ('ullAvailPageFile', ctypes.c_ulonglong),
+                        ('ullTotalVirtual', ctypes.c_ulonglong),
+                        ('ullAvailVirtual', ctypes.c_ulonglong),
+                        ('ullAvailExtendedVirtual', ctypes.c_ulonglong),
+                    ]
+                mem_status = MEMORYSTATUSEX()
+                mem_status.dwLength = ctypes.sizeof(MEMORYSTATUSEX)
+                kernel32.GlobalMemoryStatusEx(ctypes.byref(mem_status))
+                info['totalMemory'] = mem_status.ullTotalPhys
+            elif sys.platform == 'linux':
+                with open('/proc/meminfo') as f:
+                    content = f.read()
+                    m = re.search(r'MemTotal:\s+(\d+)', content)
+                    info['totalMemory'] = int(m.group(1)) * 1024 if m else 0
+            elif sys.platform == 'darwin':
+                info['totalMemory'] = int(subprocess.check_output(
+                    'sysctl -n hw.memsize', shell=True).decode().strip())
+        except:
+            info['totalMemory'] = 0
+
+        # ==================== 操作系统信息 ====================
+        info['osName'] = platform.system()
+        info['osVersion'] = platform.version()
+        info['osRelease'] = platform.release()
+        if sys.platform == 'win32':
+            info['osBuild'] = platform.win32_ver()[1]
+            try:
+                info['osInstallDate'] = subprocess.check_output(
+                    'wmic os get InstallDate', shell=True).decode().split('\n')[1].strip()[:14]
+            except:
+                info['osInstallDate'] = ''
+        elif sys.platform == 'linux':
+            try:
+                info['osBuild'] = subprocess.check_output(
+                    'uname -r', shell=True).decode().strip()
+            except:
+                info['osBuild'] = ''
+        elif sys.platform == 'darwin':
+            try:
+                info['osBuild'] = subprocess.check_output(
+                    'sw_vers -buildVersion', shell=True).decode().strip()
+            except:
+                info['osBuild'] = ''
+
+        # ==================== 机器信息 ====================
+        info['hostname'] = socket.gethostname()
+        info['machineArch'] = platform.machine()
+
         return json.dumps(info)
 
 

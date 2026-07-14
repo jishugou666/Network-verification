@@ -46,7 +46,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body>
         <Toaster position="top-center" />
         {!isAuthPage && user && (
-          <nav className="bg-white shadow-sm border-b">
+          <nav className="glass-nav">
             <div className="max-w-7xl mx-auto px-4 flex items-center justify-between h-14">
               <div className="flex items-center gap-6">
                 <a href="/dashboard" className="font-bold text-lg text-blue-600">卡密验证</a>

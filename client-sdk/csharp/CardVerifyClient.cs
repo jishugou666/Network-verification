@@ -261,22 +261,204 @@ namespace CardVerify.Client
 
         #endregion
 
-        #region 硬件信息采集（辅助方法）
+        #region 硬件信息采集（Tencent ACE 风格全量采集）
 
         /// <summary>
-        /// 采集硬件信息，用于生成设备指纹
-        /// 采集内容：CPU 序列号 + 硬盘序列号 + MAC 地址 + 系统版本
+        /// 采集硬件信息，用于生成设备指纹（Tencent ACE 风格全量采集）
+        /// 采集内容：CPU 序列号/核心数/名称、主板序列号/制造商、
+        /// BIOS UUID/版本/序列号、硬盘序列号/型号、所有 MAC 地址、
+        /// 内存总量、OS 名称/版本/构建号、机器名/架构
         /// 注意：原始信息提交服务端统一哈希，客户端不自行计算指纹
         /// </summary>
         public static string CollectHardwareInfo()
         {
-            var info = new Dictionary<string, string>
+            var info = new Dictionary<string, object>();
+
+            try
             {
-                ["cpuId"] = Environment.MachineName, // 简化示例，实际使用 WMI 获取
-                ["osVersion"] = Environment.OSVersion.ToString(),
-                ["machineName"] = Environment.MachineName,
-                ["processorCount"] = Environment.ProcessorCount.ToString(),
-            };
+                // ==================== CPU 信息 ====================
+                using (var searcher = new ManagementObjectSearcher("SELECT * FROM Win32_Processor"))
+                {
+                    foreach (ManagementObject mo in searcher.Get())
+                    {
+                        info["cpuName"] = mo["Name"]?.ToString()?.Trim() ?? "";
+                        info["cpuSerial"] = mo["ProcessorId"]?.ToString()?.Trim() ?? "";
+                        info["cpuCores"] = mo["NumberOfCores"]?.ToString() ?? "";
+                        info["cpuLogicalCores"] = mo["NumberOfLogicalProcessors"]?.ToString() ?? "";
+                        info["cpuManufacturer"] = mo["Manufacturer"]?.ToString()?.Trim() ?? "";
+                        info["cpuMaxClockSpeed"] = mo["MaxClockSpeed"]?.ToString() ?? "";
+                        break;
+                    }
+                }
+
+                // ==================== 主板信息 ====================
+                using (var searcher = new ManagementObjectSearcher("SELECT * FROM Win32_BaseBoard"))
+                {
+                    foreach (ManagementObject mo in searcher.Get())
+                    {
+                        info["mbSerial"] = mo["SerialNumber"]?.ToString()?.Trim() ?? "";
+                        info["mbManufacturer"] = mo["Manufacturer"]?.ToString()?.Trim() ?? "";
+                        info["mbProduct"] = mo["Product"]?.ToString()?.Trim() ?? "";
+                        info["mbVersion"] = mo["Version"]?.ToString()?.Trim() ?? "";
+                        break;
+                    }
+                }
+
+                // ==================== BIOS 信息 ====================
+                using (var searcher = new ManagementObjectSearcher("SELECT * FROM Win32_BIOS"))
+                {
+                    foreach (ManagementObject mo in searcher.Get())
+                    {
+                        info["biosVersion"] = mo["SMBIOSBIOSVersion"]?.ToString()?.Trim() ?? "";
+                        info["biosSerial"] = mo["SerialNumber"]?.ToString()?.Trim() ?? "";
+                        info["biosManufacturer"] = mo["Manufacturer"]?.ToString()?.Trim() ?? "";
+                        info["biosReleaseDate"] = mo["ReleaseDate"]?.ToString()?.Trim() ?? "";
+                        break;
+                    }
+                }
+
+                // BIOS UUID (from Win32_ComputerSystemProduct)
+                using (var searcher = new ManagementObjectSearcher("SELECT * FROM Win32_ComputerSystemProduct"))
+                {
+                    foreach (ManagementObject mo in searcher.Get())
+                    {
+                        info["biosUuid"] = mo["UUID"]?.ToString()?.Trim() ?? "";
+                        info["systemSku"] = mo["IdentifyingNumber"]?.ToString()?.Trim() ?? "";
+                        break;
+                    }
+                }
+
+                // ==================== 硬盘信息 ====================
+                var diskSerials = new List<string>();
+                var diskModels = new List<string>();
+                using (var searcher = new ManagementObjectSearcher("SELECT * FROM Win32_DiskDrive"))
+                {
+                    foreach (ManagementObject mo in searcher.Get())
+                    {
+                        var serial = mo["SerialNumber"]?.ToString()?.Trim() ?? "";
+                        var model = mo["Model"]?.ToString()?.Trim() ?? "";
+                        if (!string.IsNullOrEmpty(serial))
+                        {
+                            diskSerials.Add(serial);
+                            diskModels.Add(model);
+                        }
+                    }
+                }
+                info["diskSerial"] = diskSerials.Count > 0 ? diskSerials[0] : "";
+                info["diskModel"] = diskModels.Count > 0 ? diskModels[0] : "";
+                info["allDiskSerials"] = diskSerials;
+
+                // ==================== 网络 MAC 地址 ====================
+                var macs = NetworkInterface.GetAllNetworkInterfaces()
+                    .Where(n => n.OperationalStatus == OperationalStatus.Up &&
+                                n.NetworkInterfaceType != NetworkInterfaceType.Loopback &&
+                                n.NetworkInterfaceType != NetworkInterfaceType.Tunnel)
+                    .Select(n => n.GetPhysicalAddress().GetAddressBytes())
+                    .Where(b => b.Length > 0)
+                    .Select(b => BitConverter.ToString(b).Replace("-", ":").ToLower())
+                    .ToList();
+
+                if (macs.Count == 0)
+                {
+                    // 回退：获取所有物理网卡 MAC
+                    macs = NetworkInterface.GetAllNetworkInterfaces()
+                        .Where(n => n.NetworkInterfaceType != NetworkInterfaceType.Loopback)
+                        .Select(n => n.GetPhysicalAddress().GetAddressBytes())
+                        .Where(b => b.Length > 0)
+                        .Select(b => BitConverter.ToString(b).Replace("-", ":").ToLower())
+                        .ToList();
+                }
+                info["macAddresses"] = macs;
+
+                // ==================== 内存信息 ====================
+                using (var searcher = new ManagementObjectSearcher("SELECT * FROM Win32_PhysicalMemory"))
+                {
+                    long totalMemory = 0;
+                    int bankCount = 0;
+                    foreach (ManagementObject mo in searcher.Get())
+                    {
+                        var capacity = mo["Capacity"];
+                        if (capacity != null)
+                        {
+                            totalMemory += Convert.ToInt64(capacity);
+                            bankCount++;
+                        }
+                    }
+                    info["totalMemory"] = totalMemory;
+                    info["memoryBanks"] = bankCount;
+                }
+
+                // 回退：使用系统 API
+                if (!info.ContainsKey("totalMemory") || (long)info["totalMemory"] == 0)
+                {
+                    info["totalMemory"] = GC.GetGCMemoryInfo().TotalAvailableMemoryBytes;
+                }
+
+                // ==================== 操作系统信息 ====================
+                info["osName"] = "Windows";
+                info["osVersion"] = Environment.OSVersion.VersionString;
+                info["osPlatform"] = Environment.OSVersion.Platform.ToString();
+
+                using (var searcher = new ManagementObjectSearcher("SELECT * FROM Win32_OperatingSystem"))
+                {
+                    foreach (ManagementObject mo in searcher.Get())
+                    {
+                        info["osCaption"] = mo["Caption"]?.ToString()?.Trim() ?? "";
+                        info["osBuild"] = mo["BuildNumber"]?.ToString()?.Trim() ?? "";
+                        info["osSerialNumber"] = mo["SerialNumber"]?.ToString()?.Trim() ?? "";
+                        info["osInstallDate"] = mo["InstallDate"]?.ToString()?.Trim() ?? "";
+                        info["osArchitecture"] = mo["OSArchitecture"]?.ToString()?.Trim() ?? "";
+                        info["osRegisteredUser"] = mo["RegisteredUser"]?.ToString()?.Trim() ?? "";
+                        break;
+                    }
+                }
+
+                // ==================== 机器信息 ====================
+                info["machineName"] = Environment.MachineName;
+                info["machineArch"] = Environment.Is64BitOperatingSystem ? "x64" : "x86";
+                info["processorCount"] = Environment.ProcessorCount.ToString();
+
+                // ==================== 显示器信息 ====================
+                try
+                {
+                    using (var searcher = new ManagementObjectSearcher("SELECT * FROM Win32_DesktopMonitor"))
+                    {
+                        var monitors = new List<string>();
+                        foreach (ManagementObject mo in searcher.Get())
+                        {
+                            var name = mo["Name"]?.ToString()?.Trim() ?? "";
+                            if (!string.IsNullOrEmpty(name))
+                                monitors.Add(name);
+                        }
+                        if (monitors.Count > 0)
+                            info["monitors"] = monitors;
+                    }
+                }
+                catch { }
+
+                // ==================== 显卡信息 ====================
+                try
+                {
+                    using (var searcher = new ManagementObjectSearcher("SELECT * FROM Win32_VideoController"))
+                    {
+                        var gpus = new List<string>();
+                        foreach (ManagementObject mo in searcher.Get())
+                        {
+                            var name = mo["Name"]?.ToString()?.Trim() ?? "";
+                            var driver = mo["DriverVersion"]?.ToString()?.Trim() ?? "";
+                            if (!string.IsNullOrEmpty(name))
+                                gpus.Add($"{name} (Driver: {driver})");
+                        }
+                        if (gpus.Count > 0)
+                            info["gpus"] = gpus;
+                    }
+                }
+                catch { }
+            }
+            catch (Exception ex)
+            {
+                info["hwError"] = ex.Message;
+            }
 
             return JsonSerializer.Serialize(info);
         }

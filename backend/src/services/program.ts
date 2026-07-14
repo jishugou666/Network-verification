@@ -1,5 +1,5 @@
 import { prisma } from '../utils/prisma';
-import { generateAppKey, generateAppSecret, aesEncrypt, maskSecret } from '../utils/crypto';
+import { generateAppKey, generateAppSecret, aesEncrypt, aesDecrypt, maskSecret } from '../utils/crypto';
 import { CreateProgramRequest } from '../types';
 
 // ==================== 创建程序 ====================
@@ -237,4 +237,42 @@ export async function toggleProgramStatus(agentId: string, role: string, program
   });
 
   return { code: 0, message: status === 'disabled' ? '程序已停用' : '程序已启用', data: null };
+}
+
+// ==================== 获取程序对接信息 ====================
+// 返回 appKey 和解密后的 appSecret，用于对接页面的代码示例
+export async function getProgramIntegration(agentId: string, role: string, programId: string) {
+  const where: any = { id: programId };
+  if (role !== 'root') {
+    where.agentId = agentId;
+  }
+
+  const program = await prisma.program.findUnique({
+    where,
+    select: {
+      id: true,
+      name: true,
+      slug: true,
+      appKey: true,
+      appSecretEncrypted: true,
+      status: true,
+    },
+  });
+
+  if (!program) {
+    return { code: 404, message: '程序不存在或无权访问', data: null };
+  }
+
+  const appSecret = aesDecrypt(program.appSecretEncrypted);
+
+  return {
+    code: 0,
+    message: 'ok',
+    data: {
+      appKey: program.appKey,
+      appSecret,
+      name: program.name,
+      slug: program.slug,
+    },
+  };
 }

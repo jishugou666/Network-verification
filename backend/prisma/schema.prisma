@@ -71,6 +71,7 @@ model CardKey {
   agentId       String   @db.VarChar(36)              // 所属代理 ID
   programId     String   @db.VarChar(36)              // 所属程序 ID
   cardHash      String   @unique @db.VarChar(255)     // bcrypt(cardPlain) 哈希
+  cardPlainEncrypted String? @db.VarChar(512)         // AES-256-GCM 加密的卡密明文
   cardPrefix    String?  @db.VarChar(16)              // 明文前缀（用于展示辨识）
   cardType      String   @db.VarChar(16)              // day | week | month | quarter | year | permanent | custom
   durationDays  Int      @default(0)                  // 有效天数，permanent=0

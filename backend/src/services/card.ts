@@ -1,6 +1,6 @@
 import bcrypt from 'bcryptjs';
 import { prisma } from '../utils/prisma';
-import { generateCardKey } from '../utils/crypto';
+import { generateCardKey, aesEncrypt, aesDecrypt } from '../utils/crypto';
 import { CardType, CARD_TYPE_DAYS, GenerateCardsRequest } from '../types';
 
 const BCRYPT_ROUNDS = 10; // 卡密哈希轮数（略低于密码，兼顾性能）
@@ -47,6 +47,7 @@ export async function generateCards(agentId: string, role: string, data: Generat
     agentId,
     programId: data.programId,
     cardHash: c.hash,
+    cardPlainEncrypted: aesEncrypt(c.plain),
     cardPrefix: prefix || null,
     cardType,
     durationDays,
@@ -121,6 +122,7 @@ export async function listCards(
       select: {
         id: true,
         programId: true,
+        cardPlainEncrypted: true,
         cardPrefix: true,
         cardType: true,
         durationDays: true,
@@ -139,7 +141,22 @@ export async function listCards(
     prisma.cardKey.count({ where }),
   ]);
 
-  return { code: 0, message: 'ok', data: { cards, total, page, pageSize } };
+  return {
+    code: 0,
+    message: 'ok',
+    data: {
+      cards: cards.map(c => {
+        const { cardPlainEncrypted, ...rest } = c;
+        return {
+          ...rest,
+          cardPlain: cardPlainEncrypted ? aesDecrypt(cardPlainEncrypted) : null,
+        };
+      }),
+      total,
+      page,
+      pageSize,
+    },
+  };
 }
 
 // ==================== 封禁卡密 ====================
@@ -285,6 +302,7 @@ export async function exportCards(agentId: string, role: string, programId: stri
   const cards = await prisma.cardKey.findMany({
     where,
     select: {
+      cardPlainEncrypted: true,
       cardPrefix: true,
       cardType: true,
       durationDays: true,
@@ -295,17 +313,134 @@ export async function exportCards(agentId: string, role: string, programId: stri
     },
   });
 
+  const cardsWithPlain = cards.map(c => {
+    const { cardPlainEncrypted, ...rest } = c;
+    return { ...rest, cardPlain: cardPlainEncrypted ? aesDecrypt(cardPlainEncrypted) : '' };
+  });
+
   let content: string;
   if (format === 'csv') {
-    content = '前缀,类型,时长(天),状态,生成时间,激活时间,过期时间\n';
-    content += cards.map(c =>
-      `${c.cardPrefix || ''},${c.cardType},${c.durationDays},${c.status},${c.generatedAt?.toISOString() || ''},${c.activatedAt?.toISOString() || ''},${c.expiresAt?.toISOString() || ''}`,
+    content = '卡密,前缀,类型,时长(天),状态,生成时间,激活时间,过期时间\n';
+    content += cardsWithPlain.map(c =>
+      `${c.cardPlain},${c.cardPrefix || ''},${c.cardType},${c.durationDays},${c.status},${c.generatedAt?.toISOString() || ''},${c.activatedAt?.toISOString() || ''},${c.expiresAt?.toISOString() || ''}`,
     ).join('\n');
   } else {
-    content = cards.map(c =>
-      `[${c.cardPrefix || 'N/A'}] ${c.cardType} ${c.durationDays}天 ${c.status}`,
+    content = cardsWithPlain.map(c =>
+      `${c.cardPlain} [${c.cardPrefix || ''}] ${c.cardType} ${c.durationDays}天 ${c.status}`,
     ).join('\n');
   }
 
   return { code: 0, message: 'ok', data: { content, format, count: cards.length } };
+}
+
+// ==================== 卡密详情 ====================
+export async function getCardDetail(agentId: string, role: string, cardId: string) {
+  // 三层权限隔离
+  const where: any = { id: cardId };
+  if (role !== 'root') {
+    where.agentId = agentId;
+  }
+
+  const card = await prisma.cardKey.findUnique({
+    where,
+    select: {
+      id: true,
+      programId: true,
+      agentId: true,
+      cardPlainEncrypted: true,
+      cardPrefix: true,
+      cardType: true,
+      durationDays: true,
+      status: true,
+      note: true,
+      generatedAt: true,
+      activatedAt: true,
+      expiresAt: true,
+      bannedAt: true,
+      bannedReason: true,
+      endUserId: true,
+      program: {
+        select: { name: true, slug: true, appKey: true },
+      },
+      endUser: {
+        select: {
+          id: true,
+          username: true,
+          status: true,
+          lastOnline: true,
+          lastIp: true,
+          totalOnlineSec: true,
+          devices: {
+            select: {
+              id: true,
+              deviceFingerprint: true,
+              deviceName: true,
+              firstSeen: true,
+              lastSeen: true,
+              ip: true,
+            },
+          },
+        },
+      },
+    },
+  });
+
+  if (!card) {
+    return { code: 404, message: '卡密不存在或无权访问', data: null };
+  }
+
+  const { cardPlainEncrypted, endUser, ...cardRest } = card;
+
+  // 解密卡密明文
+  const cardPlain = cardPlainEncrypted ? aesDecrypt(cardPlainEncrypted) : null;
+
+  // 获取该程序的验证日志（过滤出该用户的日志）
+  const verifyLogs = await prisma.verifyLog.findMany({
+    where: { programId: card.programId },
+    orderBy: { createdAt: 'desc' },
+    take: 200,
+    select: {
+      action: true,
+      success: true,
+      detail: true,
+      ip: true,
+      createdAt: true,
+    },
+  });
+
+  // 在代码层过滤出该终端用户的验证日志
+  const endUserId = card.endUserId;
+  const filteredLogs = endUserId
+    ? verifyLogs.filter(log => {
+        if (!log.detail) return false;
+        try {
+          const detail = JSON.parse(log.detail);
+          return detail.endUserId === endUserId || detail.userId === endUserId;
+        } catch {
+          return false;
+        }
+      })
+    : [];
+
+  return {
+    code: 0,
+    message: 'ok',
+    data: {
+      ...cardRest,
+      cardPlain,
+      program: card.program,
+      endUser: endUser
+        ? {
+            id: endUser.id,
+            username: endUser.username,
+            status: endUser.status,
+            lastOnline: endUser.lastOnline,
+            lastIp: endUser.lastIp,
+            totalOnlineSec: endUser.totalOnlineSec,
+            devices: endUser.devices,
+          }
+        : null,
+      verifyLogs: filteredLogs,
+    },
+  };
 }

@@ -59,24 +59,24 @@ export default function UsersPage() {
   };
 
   return (
-    <div>
-      <h1 className="text-xl font-bold mb-6">用户管理</h1>
+    <div className="glass-enter">
+      <h1 className="glass-title mb-6">用户管理</h1>
 
       <div className="flex gap-2 mb-4">
-        <select className="border rounded px-3 py-2 text-sm" value={filterProgramId} onChange={e => setFilterProgramId(e.target.value)}>
+        <select className="glass-select" value={filterProgramId} onChange={e => setFilterProgramId(e.target.value)}>
           <option value="">全部程序</option>
           {programs.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
         </select>
-        <select className="border rounded px-3 py-2 text-sm" value={filterStatus} onChange={e => setFilterStatus(e.target.value)}>
+        <select className="glass-select" value={filterStatus} onChange={e => setFilterStatus(e.target.value)}>
           <option value="">全部状态</option>
           <option value="active">正常</option>
           <option value="banned">已封禁</option>
         </select>
       </div>
 
-      <div className="bg-white rounded-lg shadow-sm border overflow-x-auto">
+      <div className="glass-table">
         <table className="w-full text-sm">
-          <thead className="bg-gray-50">
+          <thead>
             <tr>
               <th className="text-left px-4 py-3">用户名</th>
               <th className="text-left px-4 py-3">程序</th>
@@ -89,11 +89,11 @@ export default function UsersPage() {
           </thead>
           <tbody>
             {users.map(u => (
-              <tr key={u.id} className="border-t hover:bg-gray-50">
+              <tr key={u.id}>
                 <td className="px-4 py-3 font-medium">{u.username}</td>
                 <td className="px-4 py-3 text-gray-500">{u.program?.name || '-'}</td>
                 <td className="px-4 py-3">
-                  <span className={`px-2 py-0.5 rounded text-xs ${u.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                  <span className="glass-tag" style={{color: u.status === 'active' ? '#16a34a' : '#dc2626'}}>
                     {u.status === 'active' ? '正常' : '已封禁'}
                   </span>
                 </td>
@@ -118,15 +118,15 @@ export default function UsersPage() {
       </div>
       {total > 20 && (
         <div className="flex justify-center gap-2 mt-4">
-          <button disabled={page <= 1} onClick={() => setPage(page - 1)} className="px-3 py-1 border rounded text-sm disabled:opacity-50">上一页</button>
-          <span className="px-3 py-1 text-sm text-gray-500">第 {page} 页</span>
-          <button disabled={page * 20 >= total} onClick={() => setPage(page + 1)} className="px-3 py-1 border rounded text-sm disabled:opacity-50">下一页</button>
+          <button disabled={page <= 1} onClick={() => setPage(page - 1)} className="glass-btn disabled:opacity-50">上一页</button>
+          <span className="px-3 py-1 text-sm text-gray-500 self-center">第 {page} 页</span>
+          <button disabled={page * 20 >= total} onClick={() => setPage(page + 1)} className="glass-btn disabled:opacity-50">下一页</button>
         </div>
       )}
 
       {detailUser && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl p-6 w-full max-w-lg max-h-[80vh] overflow-y-auto">
+        <div className="glass-modal-overlay fixed inset-0 flex items-center justify-center z-50">
+          <div className="glass-modal p-6 w-full max-w-lg max-h-[80vh] overflow-y-auto">
             <h2 className="text-lg font-bold mb-4">用户详情</h2>
             <div className="space-y-2 text-sm mb-4">
               <p><span className="text-gray-500">用户名：</span>{detailUser.username}</p>
@@ -141,10 +141,10 @@ export default function UsersPage() {
             {detailUser.cardKeys?.length > 0 ? (
               <div className="space-y-1 mb-4">
                 {detailUser.cardKeys.map((c: any) => (
-                  <div key={c.id} className="text-xs bg-gray-50 rounded p-2">
+                  <div key={c.id} className="text-xs glass-flat rounded-lg p-2">
                     <span>{c.cardPrefix || '-'}</span>
                     <span className="ml-2 text-gray-500">{c.cardType}</span>
-                    <span className={`ml-2 px-1 rounded ${c.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-gray-100'}`}>{c.status}</span>
+                    <span className="ml-2 glass-tag">{c.status}</span>
                     {c.expiresAt && <span className="ml-2 text-gray-400">过期: {new Date(c.expiresAt).toLocaleDateString()}</span>}
                   </div>
                 ))}
@@ -155,7 +155,7 @@ export default function UsersPage() {
             {detailUser.devices?.length > 0 ? (
               <div className="space-y-1 mb-4">
                 {detailUser.devices.map((d: any) => (
-                  <div key={d.id} className="text-xs bg-gray-50 rounded p-2 flex justify-between items-center">
+                  <div key={d.id} className="text-xs glass-flat rounded-lg p-2 flex justify-between items-center">
                     <div>
                       <code className="text-gray-600">{d.deviceFingerprint.slice(0, 32)}...</code>
                       <span className="ml-2 text-gray-400">最后: {new Date(d.lastSeen).toLocaleString()}</span>
@@ -166,7 +166,7 @@ export default function UsersPage() {
               </div>
             ) : <p className="text-xs text-gray-400 mb-4">无设备</p>}
 
-            <button onClick={() => setDetailUser(null)} className="w-full bg-gray-200 py-2 rounded-lg text-sm">关闭</button>
+            <button onClick={() => setDetailUser(null)} className="glass-btn w-full">关闭</button>
           </div>
         </div>
       )}

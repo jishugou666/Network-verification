@@ -124,4 +124,18 @@ router.get('/export/:programId', async (req: Request, res: Response) => {
   }
 });
 
+// 卡密详情
+router.get('/:id', async (req: Request, res: Response) => {
+  try {
+    const result = await cardService.getCardDetail(req.ctx!.userId, req.ctx!.role, req.params.id);
+    if (result.code === 0) {
+      success(res, result.data, result.message);
+    } else {
+      fail(res, result.code, result.message);
+    }
+  } catch (e) {
+    serverError(res);
+  }
+});
+
 export default router;

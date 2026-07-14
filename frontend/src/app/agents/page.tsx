@@ -26,12 +26,12 @@ export default function AgentsPage() {
   };
 
   return (
-    <div>
-      <h1 className="text-xl font-bold mb-6">代理管理</h1>
+    <div className="glass-enter">
+      <h1 className="glass-title mb-6">代理管理</h1>
 
-      <div className="bg-white rounded-lg shadow-sm border overflow-x-auto">
+      <div className="glass-table">
         <table className="w-full text-sm">
-          <thead className="bg-gray-50">
+          <thead>
             <tr>
               <th className="text-left px-4 py-3">用户名</th>
               <th className="text-left px-4 py-3">邮箱</th>
@@ -44,11 +44,11 @@ export default function AgentsPage() {
           </thead>
           <tbody>
             {agents.map(a => (
-              <tr key={a.id} className="border-t">
+              <tr key={a.id}>
                 <td className="px-4 py-3 font-medium">{a.username}</td>
                 <td className="px-4 py-3 text-gray-500">{a.email || '-'}</td>
                 <td className="px-4 py-3">
-                  <span className={`px-2 py-0.5 rounded text-xs ${a.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                  <span className="glass-tag" style={{color: a.status === 'active' ? '#16a34a' : '#dc2626'}}>
                     {a.status === 'active' ? '正常' : '已封禁'}
                   </span>
                 </td>
@@ -70,9 +70,9 @@ export default function AgentsPage() {
       </div>
       {total > 20 && (
         <div className="flex justify-center gap-2 mt-4">
-          <button disabled={page <= 1} onClick={() => setPage(page - 1)} className="px-3 py-1 border rounded text-sm disabled:opacity-50">上一页</button>
-          <span className="px-3 py-1 text-sm text-gray-500">第 {page} 页</span>
-          <button disabled={page * 20 >= total} onClick={() => setPage(page + 1)} className="px-3 py-1 border rounded text-sm disabled:opacity-50">下一页</button>
+          <button disabled={page <= 1} onClick={() => setPage(page - 1)} className="glass-btn disabled:opacity-50">上一页</button>
+          <span className="px-3 py-1 text-sm text-gray-500 self-center">第 {page} 页</span>
+          <button disabled={page * 20 >= total} onClick={() => setPage(page + 1)} className="glass-btn disabled:opacity-50">下一页</button>
         </div>
       )}
     </div>

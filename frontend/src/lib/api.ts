@@ -66,6 +66,7 @@ export const programApi = {
   update: (id: string, data: any) => api.put<any>(`/programs/${id}`, data),
   delete: (id: string) => api.delete(`/programs/${id}`),
   toggleStatus: (id: string, status: string) => api.put(`/programs/${id}/status`, { status }),
+  getIntegration: (id: string) => api.get<any>(`/programs/${id}/integration`),
 };
 
 // Cards
@@ -79,6 +80,7 @@ export const cardApi = {
   delete: (cardIds: string[]) => api.post('/cards/delete', { cardIds }),
   extend: (cardIds: string[], extendDays: number) => api.post('/cards/extend', { cardIds, extendDays }),
   resetDevice: (id: string) => api.post(`/cards/${id}/reset-device`),
+  getDetail: (id: string) => api.get<any>(`/cards/${id}`),
 };
 
 // Users

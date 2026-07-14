@@ -57,6 +57,20 @@ router.get('/:id', async (req: Request, res: Response) => {
   }
 });
 
+// 程序对接信息（返回 appKey + 解密后的 appSecret）
+router.get('/:id/integration', async (req: Request, res: Response) => {
+  try {
+    const result = await programService.getProgramIntegration(req.ctx!.userId, req.ctx!.role, req.params.id);
+    if (result.code === 0) {
+      success(res, result.data, result.message);
+    } else {
+      fail(res, result.code, result.message, 404);
+    }
+  } catch (e) {
+    serverError(res);
+  }
+});
+
 // 编辑程序
 router.put('/:id', async (req: Request, res: Response) => {
   try {

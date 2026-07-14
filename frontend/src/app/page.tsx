@@ -36,36 +36,39 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-100">
-      <div className="bg-white p-8 rounded-xl shadow-md w-full max-w-md">
-        <h1 className="text-2xl font-bold text-center mb-6">卡密验证系统</h1>
-        <div className="flex mb-6 border rounded-lg overflow-hidden">
+    <div className="min-h-screen flex items-center justify-center relative">
+      <div className="glass-modal p-8 w-full max-w-md glass-enter">
+        <h1 className="text-2xl font-bold text-center mb-2 glass-title">卡密验证系统</h1>
+        <p className="text-center text-sm text-gray-400 mb-6">企业级软件授权管理平台</p>
+
+        <div className="flex mb-6 glass-flat rounded-xl overflow-hidden p-1">
           <button
-            className={`flex-1 py-2 text-sm ${mode === 'login' ? 'bg-blue-600 text-white' : 'bg-gray-100'}`}
+            className={`flex-1 py-2 text-sm rounded-lg transition-all ${mode === 'login' ? 'glass-btn-primary' : ''}`}
             onClick={() => setMode('login')}
           >登录</button>
           <button
-            className={`flex-1 py-2 text-sm ${mode === 'register' ? 'bg-blue-600 text-white' : 'bg-gray-100'}`}
+            className={`flex-1 py-2 text-sm rounded-lg transition-all ${mode === 'register' ? 'glass-btn-primary' : ''}`}
             onClick={() => setMode('register')}
           >注册</button>
         </div>
+
         <form onSubmit={handleSubmit}>
           <input
-            className="w-full border rounded-lg px-3 py-2 mb-3 text-sm"
+            className="glass-input w-full mb-3"
             placeholder="用户名"
             value={username}
             onChange={e => setUsername(e.target.value)}
           />
           <input
             type="password"
-            className="w-full border rounded-lg px-3 py-2 mb-3 text-sm"
+            className="glass-input w-full mb-3"
             placeholder="密码"
             value={password}
             onChange={e => setPassword(e.target.value)}
           />
           {mode === 'register' && (
             <input
-              className="w-full border rounded-lg px-3 py-2 mb-3 text-sm"
+              className="glass-input w-full mb-3"
               placeholder="邮箱（选填）"
               value={email}
               onChange={e => setEmail(e.target.value)}
@@ -74,13 +77,20 @@ export default function LoginPage() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-blue-600 text-white py-2 rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
+            className="glass-btn-primary w-full py-2.5 text-sm font-medium"
           >
             {loading ? '处理中...' : (mode === 'login' ? '登录' : '注册')}
           </button>
         </form>
-        <p className="text-xs text-gray-400 mt-4 text-center">
-          {mode === 'login' ? '没有账号？点击注册成为代理' : '已有账号？点击登录'}
+
+        <p className="text-xs text-gray-400 mt-5 text-center">
+          {mode === 'login' ? '没有账号？' : '已有账号？'}
+          <button
+            className="text-blue-500 hover:underline ml-1"
+            onClick={() => setMode(mode === 'login' ? 'register' : 'login')}
+          >
+            {mode === 'login' ? '注册成为代理' : '返回登录'}
+          </button>
         </p>
       </div>
     </div>
