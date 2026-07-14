@@ -1,0 +1,203 @@
+// 所有关联代理的表强制包含 agentId，用于三层权限隔离
+// 所有时间字段使用 UTC（DateTime @default(now())）
+// 卡密哈希、appKey、endUserId、agentId 建立索引
+
+generator client {
+  provider        = "prisma-client-js"
+  binaryTargets   = ["native", "debian-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+// ==================== 用户表（超级管理员 + 代理账号） ====================
+model User {
+  id            String   @id @default(uuid())
+  username      String   @unique @db.VarChar(64)
+  passwordHash  String   @db.VarChar(255)           // bcrypt(salt=12) 存储
+  email         String?  @unique @db.VarChar(128)
+  role          String   @default("agent") @db.VarChar(16) // root | agent
+  status        String   @default("active") @db.VarChar(16) // active | banned
+  loginAttempts Int      @default(0)                // 连续登录失败次数
+  lockedUntil   DateTime?                            // 锁定到期时间
+  totpSecret    String?  @db.VarChar(64)            // TOTP 密钥（P1 功能预留）
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  programs      Program[]
+  cardKeys      CardKey[]
+  endUsers      EndUser[]
+  operationLogs OperationLog[]
+
+  @@index([role])
+  @@index([status])
+}
+
+// ==================== 程序表 ====================
+model Program {
+  id                  String   @id @default(uuid())
+  agentId             String   @db.VarChar(36)      // 所属代理 ID，强制隔离
+  name                String   @db.VarChar(128)
+  slug                String   @unique @db.VarChar(64) // 唯一标识符
+  description         String?  @db.Text
+  appKey              String   @unique @db.VarChar(64) // 自动生成
+  appSecretEncrypted  String   @db.VarChar(512)        // AES-256-GCM 加密存储
+  appSecretPreview    String   @db.VarChar(16)         // 脱敏展示：**** + 后4位
+  status              String   @default("active") @db.VarChar(16) // active | disabled
+  maxDevices          Int      @default(3)             // 单账号最大绑定设备数
+  allowReActivate     Boolean  @default(false)         // 是否允许卡密重复激活
+  heartbeatTimeout    Int      @default(120)           // 心跳超时秒数
+  ipWhitelist         String?  @db.Text                // IP 白名单 JSON 数组（P1）
+  webhookUrl          String?  @db.VarChar(512)        // Webhook 回调地址（P1）
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  agent       User       @relation(fields: [agentId], references: [id])
+  cardKeys    CardKey[]
+  endUsers    EndUser[]
+  verifyLogs  VerifyLog[]
+
+  @@index([agentId])
+  @@index([appKey])
+  @@index([slug])
+  @@index([status])
+}
+
+// ==================== 卡密表 ====================
+model CardKey {
+  id            String   @id @default(uuid())
+  agentId       String   @db.VarChar(36)              // 所属代理 ID
+  programId     String   @db.VarChar(36)              // 所属程序 ID
+  cardHash      String   @unique @db.VarChar(255)     // bcrypt(cardPlain) 哈希
+  cardPrefix    String?  @db.VarChar(16)              // 明文前缀（用于展示辨识）
+  cardType      String   @db.VarChar(16)              // day | week | month | quarter | year | permanent | custom
+  durationDays  Int      @default(0)                  // 有效天数，permanent=0
+  status        String   @default("inactive") @db.VarChar(16) // inactive | active | expired | banned
+  note          String?  @db.VarChar(256)             // 备注（P1：标记销售渠道）
+  generatedAt   DateTime @default(now())
+  activatedAt   DateTime?                              // 首次激活时间
+  expiresAt     DateTime?                              // 过期时间
+  endUserId     String?  @db.VarChar(36)              // 绑定的终端用户 ID
+  bannedAt      DateTime?                              // 封禁时间
+  bannedReason  String?  @db.VarChar(256)             // 封禁原因
+
+  agent    User    @relation(fields: [agentId], references: [id])
+  program  Program @relation(fields: [programId], references: [id])
+  endUser  EndUser? @relation(fields: [endUserId], references: [id])
+
+  @@index([agentId])
+  @@index([programId])
+  @@index([cardHash])
+  @@index([endUserId])
+  @@index([status])
+  @@index([cardType])
+}
+
+// ==================== 终端用户表 ====================
+model EndUser {
+  id              String   @id @default(uuid())
+  agentId         String   @db.VarChar(36)            // 所属代理 ID
+  programId       String   @db.VarChar(36)            // 所属程序 ID
+  username        String   @db.VarChar(128)           // 客户端传入的自定义用户名
+  status          String   @default("active") @db.VarChar(16) // active | banned
+  firstActivated  DateTime @default(now())
+  lastOnline      DateTime?                            // 最后在线时间
+  totalOnlineSec  Int      @default(0)                 // 累计在线秒数
+  lastIp          String?  @db.VarChar(45)            // 最后登录 IP
+  bannedAt        DateTime?                            // 封禁时间
+  bannedReason    String?  @db.VarChar(256)
+
+  agent    User      @relation(fields: [agentId], references: [id])
+  program  Program   @relation(fields: [programId], references: [id])
+  cardKeys CardKey[]
+  devices  Device[]
+  tokens   HeartbeatToken[]
+
+  @@index([agentId])
+  @@index([programId])
+  @@index([username])
+  @@index([status])
+}
+
+// ==================== 设备绑定表 ====================
+model Device {
+  id              String   @id @default(uuid())
+  endUserId       String   @db.VarChar(36)            // 所属终端用户
+  programId       String   @db.VarChar(36)            // 所属程序
+  deviceFingerprint String @db.VarChar(128)           // SHA-256(硬件信息) 哈希
+  deviceName      String?  @db.VarChar(128)           // 设备名称（可选）
+  firstSeen       DateTime @default(now())
+  lastSeen        DateTime @default(now())
+  ip              String?  @db.VarChar(45)
+
+  endUser  EndUser  @relation(fields: [endUserId], references: [id])
+
+  @@unique([endUserId, deviceFingerprint])
+  @@index([endUserId])
+  @@index([programId])
+}
+
+// ==================== 防重放 Nonce 表 ====================
+model Nonce {
+  id        String   @id @default(uuid())
+  appKey    String   @db.VarChar(64)                  // 关联 AppKey
+  nonce     String   @db.VarChar(32)                  // 客户端传入的随机字符串
+  createdAt DateTime @default(now())                  // 创建时间，5分钟后可清理
+
+  @@index([appKey, nonce])
+  @@index([createdAt])
+}
+
+// ==================== 心跳 Token 表 ====================
+model HeartbeatToken {
+  id        String   @id @default(uuid())
+  endUserId String   @db.VarChar(36)                 // 所属终端用户
+  token     String   @unique @db.VarChar(128)         // 一次性心跳 Token
+  used      Boolean  @default(false)                  // 是否已使用
+  expiresAt DateTime                                  // 过期时间
+  createdAt DateTime @default(now())
+
+  endUser EndUser @relation(fields: [endUserId], references: [id])
+
+  @@index([endUserId])
+  @@index([token])
+  @@index([expiresAt])
+}
+
+// ==================== 操作日志表 ====================
+model OperationLog {
+  id        String   @id @default(uuid())
+  userId    String   @db.VarChar(36)                  // 操作用户 ID
+  action    String   @db.VarChar(64)                  // 操作类型
+  target    String?  @db.VarChar(64)                  // 操作目标类型
+  targetId  String?  @db.VarChar(36)                  // 操作目标 ID
+  detail    String?  @db.Text                          // 操作详情 JSON
+  ip        String?  @db.VarChar(45)
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([action])
+  @@index([createdAt])
+}
+
+// ==================== 验证日志表 ====================
+model VerifyLog {
+  id        String   @id @default(uuid())
+  programId String   @db.VarChar(36)                  // 所属程序
+  action    String   @db.VarChar(32)                  // activate | challenge | heartbeat | logout
+  success   Boolean                                    // 是否成功
+  detail    String?  @db.Text                          // 详情 JSON
+  ip        String?  @db.VarChar(45)
+  createdAt DateTime @default(now())
+
+  program Program @relation(fields: [programId], references: [id])
+
+  @@index([programId])
+  @@index([action])
+  @@index([success])
+  @@index([createdAt])
+}
