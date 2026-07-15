@@ -15,6 +15,14 @@ router.post('/login', rateLimitMiddleware, async (req: Request, res: Response) =
       fail(res, ErrorCode.BAD_REQUEST, '用户名和密码不能为空');
       return;
     }
+    if (typeof username !== 'string' || username.length < 2 || username.length > 64) {
+      fail(res, ErrorCode.BAD_REQUEST, '用户名格式无效');
+      return;
+    }
+    if (typeof password !== 'string' || password.length < 6 || password.length > 128) {
+      fail(res, ErrorCode.BAD_REQUEST, '密码格式无效');
+      return;
+    }
     const ip = (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() || req.socket.remoteAddress || 'unknown';
     const result = await authService.login(username, password, ip);
     if (result.code === 0) {

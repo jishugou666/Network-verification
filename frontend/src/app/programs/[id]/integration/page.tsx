@@ -2450,6 +2450,9 @@ export default function IntegrationPage() {
   const [loading, setLoading] = useState(true);
   const [activeLang, setActiveLang] = useState<Lang>('Python');
   const [copied, setCopied] = useState(false);
+  const [connStatus, setConnStatus] = useState<'checking' | 'connected' | 'disconnected'>('checking');
+  const [connLatency, setConnLatency] = useState<number | null>(null);
+  const [connError, setConnError] = useState<string | null>(null);
 
   useEffect(() => {
     programApi.getIntegration(id).then(res => {
@@ -2462,6 +2465,45 @@ export default function IntegrationPage() {
   }, [id]);
 
   const apiBase = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+
+  // 连通状态检测（轮询方式）
+  useEffect(() => {
+    let cancelled = false;
+    let timer: ReturnType<typeof setTimeout>;
+
+    const check = async () => {
+      if (cancelled) return;
+      setConnStatus('checking');
+      const start = performance.now();
+      try {
+        const resp = await fetch(`${apiBase}/health`, { method: 'GET', cache: 'no-store' });
+        const latency = Math.round(performance.now() - start);
+        if (!cancelled) {
+          if (resp.ok) {
+            setConnStatus('connected');
+            setConnLatency(latency);
+            setConnError(null);
+          } else {
+            setConnStatus('disconnected');
+            setConnError(`HTTP ${resp.status}`);
+            setConnLatency(null);
+          }
+        }
+      } catch (err: any) {
+        if (!cancelled) {
+          setConnStatus('disconnected');
+          setConnError(err.message || '网络错误');
+          setConnLatency(null);
+        }
+      }
+      if (!cancelled) {
+        timer = setTimeout(check, 5000);
+      }
+    };
+
+    check();
+    return () => { cancelled = true; clearTimeout(timer); };
+  }, [apiBase]);
 
   const code = program ? generateCode(activeLang, program.appKey, program.appSecret, apiBase + '/api') : '';
 
@@ -2497,6 +2539,51 @@ export default function IntegrationPage() {
         <p className="text-sm text-gray-500">
           选择语言查看完整的卡密验证集成代码示例，包含签名、硬件采集、激活、心跳和登出。
         </p>
+      </div>
+
+      {/* 连通状态检测 */}
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 mb-6">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <span className="text-sm font-medium text-gray-700">API 连通状态</span>
+            <div className="flex items-center gap-2">
+              {connStatus === 'checking' && (
+                <>
+                  <span className="relative flex h-2.5 w-2.5">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-yellow-400 opacity-75" />
+                    <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-yellow-500" />
+                  </span>
+                  <span className="text-xs text-yellow-600">检测中...</span>
+                </>
+              )}
+              {connStatus === 'connected' && (
+                <>
+                  <span className="relative flex h-2.5 w-2.5">
+                    <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-green-500" />
+                  </span>
+                  <span className="text-xs text-green-600 font-medium">已连接</span>
+                </>
+              )}
+              {connStatus === 'disconnected' && (
+                <>
+                  <span className="relative flex h-2.5 w-2.5">
+                    <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-red-500" />
+                  </span>
+                  <span className="text-xs text-red-600 font-medium">未连接</span>
+                </>
+              )}
+            </div>
+          </div>
+          <div className="flex items-center gap-4 text-xs text-gray-400">
+            {connLatency !== null && (
+              <span>延迟 <span className="font-mono text-gray-600">{connLatency}ms</span></span>
+            )}
+            {connError && (
+              <span className="text-red-400 max-w-[200px] truncate" title={connError}>{connError}</span>
+            )}
+            <span className="text-gray-300">每 5 秒刷新</span>
+          </div>
+        </div>
       </div>
 
       {/* Keys Display */}
