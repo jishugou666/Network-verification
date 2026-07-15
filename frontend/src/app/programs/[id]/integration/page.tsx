@@ -2814,116 +2814,114 @@ export default function IntegrationPage() {
 
       {/* UI 定制面板 */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 mb-6">
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-3">
+        <div className="flex items-center justify-between mb-5">
+          <div>
             <h3 className="text-sm font-semibold text-gray-800">界面定制</h3>
-            <span className="text-xs text-gray-400">自定义验证弹窗外观</span>
+            <p className="text-xs text-gray-400 mt-0.5">自定义验证弹窗外观，修改后下载客户端即可生效</p>
           </div>
-          <div className="flex gap-2">
-            <button
-              onClick={handleSaveUIConfig}
-              disabled={savingConfig}
-              className="px-3 py-1.5 text-xs font-medium text-purple-700 bg-purple-50 hover:bg-purple-100 border border-purple-200 rounded-lg transition-colors disabled:opacity-50"
-            >
-              {savingConfig ? '保存中...' : '保存样式'}
-            </button>
-          </div>
+          <button
+            onClick={handleSaveUIConfig}
+            disabled={savingConfig}
+            className="px-4 py-2 text-xs font-medium text-white bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 rounded-lg shadow-sm transition-all disabled:opacity-50"
+          >
+            {savingConfig ? '保存中...' : '保存样式'}
+          </button>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {/* 登录弹窗 */}
-          <div>
-            <h4 className="text-xs font-semibold text-gray-600 mb-3">登录弹窗</h4>
-            <div className="space-y-2">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          {/* ===== 左：登录弹窗 ===== */}
+          <div className="bg-blue-50/30 border border-blue-100 rounded-xl p-4">
+            <h4 className="text-xs font-bold text-blue-700 mb-3 flex items-center gap-2">
+              <span className="w-1.5 h-1.5 rounded-full bg-blue-500" />
+              登录弹窗
+            </h4>
+            <div className="space-y-3">
               <div>
-                <label className="text-xs text-gray-500">标题文字</label>
-                <input className="glass-input w-full mt-1" value={uiConfig?.title || ''} placeholder="卡密验证" onChange={e => updateUIConfig('title', e.target.value)} />
+                <label className="text-[11px] font-semibold text-blue-800">标题文字</label>
+                <input className="w-full mt-1 px-3 py-2 text-sm border border-blue-200 rounded-lg bg-white outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-50 text-gray-700 placeholder-gray-300" placeholder="卡密验证" value={uiConfig?.title || ''} onChange={e => updateUIConfig('title', e.target.value)} />
               </div>
               <div>
-                <label className="text-xs text-gray-500">副标题</label>
-                <input className="glass-input w-full mt-1" value={uiConfig?.subtitle || ''} placeholder="请输入卡密以激活" onChange={e => updateUIConfig('subtitle', e.target.value)} />
+                <label className="text-[11px] font-semibold text-blue-800">副标题</label>
+                <input className="w-full mt-1 px-3 py-2 text-sm border border-blue-200 rounded-lg bg-white outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-50 text-gray-700 placeholder-gray-300" placeholder="请输入卡密以激活" value={uiConfig?.subtitle || ''} onChange={e => updateUIConfig('subtitle', e.target.value)} />
               </div>
               <div>
-                <label className="text-xs text-gray-500">按钮文字</label>
-                <input className="glass-input w-full mt-1" value={uiConfig?.btnText || ''} placeholder="验证并激活" onChange={e => updateUIConfig('btnText', e.target.value)} />
+                <label className="text-[11px] font-semibold text-blue-800">按钮文字</label>
+                <input className="w-full mt-1 px-3 py-2 text-sm border border-blue-200 rounded-lg bg-white outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-50 text-gray-700 placeholder-gray-300" placeholder="验证并激活" value={uiConfig?.btnText || ''} onChange={e => updateUIConfig('btnText', e.target.value)} />
               </div>
-              <div className="flex gap-2">
-                <div className="flex-1">
-                  <label className="text-xs text-gray-500">头部颜色</label>
-                  <div className="flex items-center gap-2 mt-1">
-                    <input type="color" className="w-8 h-8 rounded cursor-pointer border-0" value={uiConfig?.bg || '#3b82f6'} onChange={e => updateUIConfig('bg', e.target.value)} />
-                    <input className="glass-input flex-1" value={uiConfig?.bg || '#3b82f6'} onChange={e => updateUIConfig('bg', e.target.value)} />
-                  </div>
-                </div>
-                <div className="flex-1">
-                  <label className="text-xs text-gray-500">渐变颜色</label>
-                  <div className="flex items-center gap-2 mt-1">
-                    <input type="color" className="w-8 h-8 rounded cursor-pointer border-0" value={uiConfig?.bg2 || '#6366f1'} onChange={e => updateUIConfig('bg2', e.target.value)} />
-                    <input className="glass-input flex-1" value={uiConfig?.bg2 || '#6366f1'} onChange={e => updateUIConfig('bg2', e.target.value)} />
-                  </div>
+              <div>
+                <label className="text-[11px] font-semibold text-blue-800">头部渐变色</label>
+                <div className="flex items-center gap-2 mt-1">
+                  <input type="color" className="w-7 h-7 rounded-md border border-gray-200 cursor-pointer p-0 bg-transparent" value={uiConfig?.bg || '#3b82f6'} onChange={e => updateUIConfig('bg', e.target.value)} />
+                  <span className="text-[11px] text-gray-400">→</span>
+                  <input type="color" className="w-7 h-7 rounded-md border border-gray-200 cursor-pointer p-0 bg-transparent" value={uiConfig?.bg2 || '#6366f1'} onChange={e => updateUIConfig('bg2', e.target.value)} />
+                  <code className="ml-auto text-[11px] text-blue-600 bg-white/80 px-2 py-0.5 rounded border border-blue-100">{uiConfig?.bg || '#3b82f6'} → {uiConfig?.bg2 || '#6366f1'}</code>
                 </div>
               </div>
-              <div className="flex gap-2">
-                <div className="flex-1">
-                  <label className="text-xs text-gray-500">弹窗圆角</label>
-                  <input type="range" min="0" max="30" value={uiConfig?.radius || 18} onChange={e => updateUIConfig('radius', parseInt(e.target.value))} className="w-full mt-1" />
-                  <span className="text-xs text-gray-400">{uiConfig?.radius || 18}px</span>
-                </div>
-                <div className="flex-1">
-                  <label className="text-xs text-gray-500">输入框圆角</label>
-                  <input type="range" min="0" max="20" value={uiConfig?.inputRadius || 10} onChange={e => updateUIConfig('inputRadius', parseInt(e.target.value))} className="w-full mt-1" />
-                  <span className="text-xs text-gray-400">{uiConfig?.inputRadius || 10}px</span>
+              <div>
+                <label className="text-[11px] font-semibold text-blue-800">弹窗圆角 <span className="font-mono text-blue-500">{uiConfig?.radius || 18}px</span></label>
+                <input type="range" min="0" max="30" value={uiConfig?.radius || 18} onChange={e => updateUIConfig('radius', parseInt(e.target.value))} className="w-full mt-1 accent-blue-500 h-1.5" />
+              </div>
+              <div>
+                <label className="text-[11px] font-semibold text-blue-800">输入框圆角 <span className="font-mono text-blue-500">{uiConfig?.inputRadius || 10}px</span></label>
+                <input type="range" min="0" max="20" value={uiConfig?.inputRadius || 10} onChange={e => updateUIConfig('inputRadius', parseInt(e.target.value))} className="w-full mt-1 accent-blue-500 h-1.5" />
+              </div>
+            </div>
+          </div>
+
+          {/* ===== 中：成功弹窗 ===== */}
+          <div className="bg-emerald-50/30 border border-emerald-100 rounded-xl p-4">
+            <h4 className="text-xs font-bold text-emerald-700 mb-3 flex items-center gap-2">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+              成功弹窗
+            </h4>
+            <div className="space-y-3">
+              <div>
+                <label className="text-[11px] font-semibold text-emerald-800">标题文字</label>
+                <input className="w-full mt-1 px-3 py-2 text-sm border border-emerald-200 rounded-lg bg-white outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-50 text-gray-700 placeholder-gray-300" placeholder="验证成功" value={uiConfig?.okTitle || ''} onChange={e => updateUIConfig('okTitle', e.target.value)} />
+              </div>
+              <div>
+                <label className="text-[11px] font-semibold text-emerald-800">副标题</label>
+                <input className="w-full mt-1 px-3 py-2 text-sm border border-emerald-200 rounded-lg bg-white outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-50 text-gray-700 placeholder-gray-300" placeholder="功能已激活" value={uiConfig?.okSub || ''} onChange={e => updateUIConfig('okSub', e.target.value)} />
+              </div>
+              <div>
+                <label className="text-[11px] font-semibold text-emerald-800">头部渐变色</label>
+                <div className="flex items-center gap-2 mt-1">
+                  <input type="color" className="w-7 h-7 rounded-md border border-gray-200 cursor-pointer p-0 bg-transparent" value={uiConfig?.okBg || '#10b981'} onChange={e => updateUIConfig('okBg', e.target.value)} />
+                  <span className="text-[11px] text-gray-400">→</span>
+                  <input type="color" className="w-7 h-7 rounded-md border border-gray-200 cursor-pointer p-0 bg-transparent" value={uiConfig?.okBg2 || '#059669'} onChange={e => updateUIConfig('okBg2', e.target.value)} />
+                  <code className="ml-auto text-[11px] text-emerald-600 bg-white/80 px-2 py-0.5 rounded border border-emerald-100">{uiConfig?.okBg || '#10b981'} → {uiConfig?.okBg2 || '#059669'}</code>
                 </div>
               </div>
             </div>
           </div>
 
-          {/* 成功弹窗 */}
-          <div>
-            <h4 className="text-xs font-semibold text-gray-600 mb-3">成功弹窗</h4>
-            <div className="space-y-2">
-              <div>
-                <label className="text-xs text-gray-500">标题文字</label>
-                <input className="glass-input w-full mt-1" value={uiConfig?.okTitle || ''} placeholder="验证成功" onChange={e => updateUIConfig('okTitle', e.target.value)} />
-              </div>
-              <div>
-                <label className="text-xs text-gray-500">副标题</label>
-                <input className="glass-input w-full mt-1" value={uiConfig?.okSub || ''} placeholder="功能已激活" onChange={e => updateUIConfig('okSub', e.target.value)} />
-              </div>
-              <div className="flex gap-2">
-                <div className="flex-1">
-                  <label className="text-xs text-gray-500">头部颜色</label>
-                  <div className="flex items-center gap-2 mt-1">
-                    <input type="color" className="w-8 h-8 rounded cursor-pointer border-0" value={uiConfig?.okBg || '#10b981'} onChange={e => updateUIConfig('okBg', e.target.value)} />
-                    <input className="glass-input flex-1" value={uiConfig?.okBg || '#10b981'} onChange={e => updateUIConfig('okBg', e.target.value)} />
-                  </div>
-                </div>
-                <div className="flex-1">
-                  <label className="text-xs text-gray-500">渐变颜色</label>
-                  <div className="flex items-center gap-2 mt-1">
-                    <input type="color" className="w-8 h-8 rounded cursor-pointer border-0" value={uiConfig?.okBg2 || '#059669'} onChange={e => updateUIConfig('okBg2', e.target.value)} />
-                    <input className="glass-input flex-1" value={uiConfig?.okBg2 || '#059669'} onChange={e => updateUIConfig('okBg2', e.target.value)} />
-                  </div>
-                </div>
-              </div>
+          {/* ===== 右：实时预览 ===== */}
+          <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+            <div className="px-3 py-2 border-b border-gray-100 flex items-center gap-2">
+              <span className="w-1.5 h-1.5 rounded-full bg-green-500" />
+              <span className="text-[11px] font-semibold text-gray-600">实时预览</span>
             </div>
-          </div>
-
-          {/* 预览 */}
-          <div>
-            <h4 className="text-xs font-semibold text-gray-600 mb-3">实时预览</h4>
-            <div className="border border-gray-200 rounded-xl overflow-hidden">
-              <div style={{ padding: '14px 12px', background: `linear-gradient(135deg, ${uiConfig?.bg || '#3b82f6'}, ${uiConfig?.bg2 || '#6366f1'})`, color: '#fff', textAlign: 'center', borderRadius: `${uiConfig?.radius || 18}px ${uiConfig?.radius || 18}px 0 0` }}>
-                <div style={{ fontSize: '13px', fontWeight: 700 }}>{uiConfig?.title || '卡密验证'}</div>
-                <div style={{ fontSize: '10px', opacity: 0.85 }}>{uiConfig?.subtitle || '请输入卡密以激活'}</div>
-              </div>
-              <div style={{ padding: '12px', background: '#fff' }}>
-                <div style={{ width: '100%', padding: '6px', border: '1px solid #d1d5db', borderRadius: `${uiConfig?.inputRadius || 10}px`, fontSize: '10px', textAlign: 'center', marginBottom: '8px' }}>请输入卡密</div>
-                <div style={{ width: '100%', padding: '6px', border: 'none', borderRadius: `${uiConfig?.inputRadius || 10}px`, fontSize: '11px', fontWeight: 'bold', textAlign: 'center', color: '#fff', background: `linear-gradient(135deg, ${uiConfig?.btnH || '#3b82f6'}, ${uiConfig?.btnH2 || '#6366f1'})` }}>{uiConfig?.btnText || '验证并激活'}</div>
-              </div>
-              <div style={{ padding: '14px 12px', background: `linear-gradient(135deg, ${uiConfig?.okBg || '#10b981'}, ${uiConfig?.okBg2 || '#059669'})`, color: '#fff', textAlign: 'center' }}>
-                <div style={{ fontSize: '13px', fontWeight: 700 }}>{uiConfig?.okTitle || '验证成功'}</div>
-                <div style={{ fontSize: '10px', opacity: 0.85 }}>{uiConfig?.okSub || '功能已激活'}</div>
+            <div className="p-4 bg-gray-50">
+              <div className="max-w-[260px] mx-auto rounded-xl overflow-hidden shadow-lg" style={{ borderRadius: `${uiConfig?.radius || 18}px` }}>
+                {/* 登录头部 */}
+                <div style={{ padding: '14px 12px', background: `linear-gradient(135deg, ${uiConfig?.bg || '#3b82f6'}, ${uiConfig?.bg2 || '#6366f1'})`, color: '#fff', textAlign: 'center' }}>
+                  <div style={{ fontSize: '12px', fontWeight: 700 }}>{uiConfig?.title || '卡密验证'}</div>
+                  <div style={{ fontSize: '10px', opacity: 0.85, marginTop: '2px' }}>{uiConfig?.subtitle || '请输入卡密以激活'}</div>
+                </div>
+                {/* 登录表单 */}
+                <div style={{ padding: '12px', background: '#fff' }}>
+                  <div style={{ padding: '6px 10px', border: '1px solid #d1d5db', borderRadius: `${uiConfig?.inputRadius || 10}px`, fontSize: '10px', textAlign: 'center', color: '#9ca3af', marginBottom: '8px' }}>
+                    请输入卡密
+                  </div>
+                  <div style={{ padding: '6px 10px', borderRadius: `${uiConfig?.inputRadius || 10}px`, fontSize: '10px', fontWeight: 'bold', textAlign: 'center', color: '#fff', background: `linear-gradient(135deg, ${uiConfig?.btnH || '#3b82f6'}, ${uiConfig?.btnH2 || '#6366f1'})` }}>
+                    {uiConfig?.btnText || '验证并激活'}
+                  </div>
+                </div>
+                {/* 成功头部 */}
+                <div style={{ padding: '10px 12px', background: `linear-gradient(135deg, ${uiConfig?.okBg || '#10b981'}, ${uiConfig?.okBg2 || '#059669'})`, color: '#fff', textAlign: 'center' }}>
+                  <div style={{ fontSize: '11px', fontWeight: 700 }}>{uiConfig?.okTitle || '验证成功'}</div>
+                  <div style={{ fontSize: '9px', opacity: 0.85, marginTop: '1px' }}>{uiConfig?.okSub || '功能已激活'}</div>
+                </div>
               </div>
             </div>
           </div>
