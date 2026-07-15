@@ -59,10 +59,12 @@ model Program {
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
 
-  agent       User       @relation(fields: [agentId], references: [id])
-  cardKeys    CardKey[]
-  endUsers    EndUser[]
-  verifyLogs  VerifyLog[]
+  agent           User             @relation(fields: [agentId], references: [id])
+  cardKeys        CardKey[]
+  endUsers        EndUser[]
+  challenges      Challenge[]
+  heartbeatTokens HeartbeatToken[]
+  verifyLogs      VerifyLog[]
 
   @@index([agentId])
   @@index([appKey])
