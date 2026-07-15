@@ -112,11 +112,11 @@ export async function activateCard(
       const heartbeatToken = uuidv4();
       const expiresAt = matchedCard.durationDays > 0 ? new Date(Date.now() + matchedCard.durationDays * 86400000) : null;
 
-      // 并行：更新卡密/设备/创建Token/更新用户
+      // 并行：更新卡密/设备/创建Token（绑定设备指纹）/更新用户
       await Promise.all([
         prisma.cardKey.update({ where: { id: matchedCard.id }, data: { expiresAt, activatedAt: new Date() } }),
         prisma.device.update({ where: { id: existingDevice.id }, data: { lastSeen: new Date(), ip } }),
-        prisma.heartbeatToken.create({ data: { endUserId: matchedCard.endUserId, token: heartbeatToken, expiresAt: new Date(Date.now() + program.heartbeatTimeout * 1000) } }),
+        prisma.heartbeatToken.create({ data: { endUserId: matchedCard.endUserId, token: heartbeatToken, deviceFingerprint, expiresAt: new Date(Date.now() + program.heartbeatTimeout * 1000) } }),
         prisma.endUser.update({ where: { id: matchedCard.endUserId }, data: { lastOnline: new Date(), lastIp: ip } }),
       ]);
 
@@ -166,7 +166,7 @@ export async function activateCard(
   const expiresAt = matchedCard.durationDays > 0 ? new Date(Date.now() + matchedCard.durationDays * 86400000) : null;
   const heartbeatToken = uuidv4();
 
-  // 并行执行：更新卡密、绑定设备、创建Token
+  // 并行执行：更新卡密、绑定设备、创建Token（绑定设备指纹）
   await Promise.all([
     prisma.cardKey.update({ where: { id: matchedCard.id }, data: { status: 'active', endUserId: endUser.id, activatedAt: new Date(), expiresAt } }),
     prisma.device.upsert({
@@ -174,7 +174,7 @@ export async function activateCard(
       update: { lastSeen: new Date(), ip },
       create: { endUserId: endUser.id, programId: program.id, deviceFingerprint, lastSeen: new Date(), ip },
     }),
-    prisma.heartbeatToken.create({ data: { endUserId: endUser.id, token: heartbeatToken, expiresAt: new Date(Date.now() + program.heartbeatTimeout * 1000) } }),
+    prisma.heartbeatToken.create({ data: { endUserId: endUser.id, token: heartbeatToken, deviceFingerprint, expiresAt: new Date(Date.now() + program.heartbeatTimeout * 1000) } }),
   ]);
 
   const responseData = JSON.stringify({ userId: endUser.id, username: deviceFingerprint, heartbeatToken, expiresAt: expiresAt?.toISOString() || null, maxDevices: program.maxDevices, deviceCount: 1 });
@@ -259,12 +259,13 @@ export async function heartbeat(
   // 标记旧 Token 已使用
   await prisma.heartbeatToken.update({ where: { id: token.id }, data: { used: true } });
 
-  // 生成新 Token
+  // 生成新 Token（继承原 Token 的设备指纹绑定）
   const newToken = uuidv4();
   await prisma.heartbeatToken.create({
     data: {
       endUserId: userId,
       token: newToken,
+      deviceFingerprint: token.deviceFingerprint,
       expiresAt: new Date(Date.now() + program.heartbeatTimeout * 1000),
     },
   });
@@ -309,6 +310,7 @@ export async function heartbeat(
     message: '心跳验证成功',
     data: {
       ...encrypted,
+      challenge,
       userId,
     },
   };

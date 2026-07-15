@@ -157,12 +157,13 @@ model Nonce {
 
 // ==================== 心跳 Token 表 ====================
 model HeartbeatToken {
-  id        String   @id @default(uuid())
-  endUserId String   @db.VarChar(36)                 // 所属终端用户
-  token     String   @unique @db.VarChar(128)         // 一次性心跳 Token
-  used      Boolean  @default(false)                  // 是否已使用
-  expiresAt DateTime                                  // 过期时间
-  createdAt DateTime @default(now())
+  id                String   @id @default(uuid())
+  endUserId         String   @db.VarChar(36)          // 所属终端用户
+  token             String   @unique @db.VarChar(128)  // 一次性心跳 Token
+  used              Boolean  @default(false)            // 是否已使用
+  deviceFingerprint String?  @db.VarChar(128)           // 绑定设备指纹（凭证不可跨设备）
+  expiresAt         DateTime                            // 过期时间
+  createdAt         DateTime @default(now())
 
   endUser EndUser @relation(fields: [endUserId], references: [id])
 
