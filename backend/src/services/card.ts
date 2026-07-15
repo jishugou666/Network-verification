@@ -319,7 +319,7 @@ export async function adminUnbind(agentId: string, role: string, cardId: string)
   await prisma.$transaction([
     prisma.heartbeatToken.updateMany({ where: { endUserId: card.endUserId!, used: false }, data: { used: true } }),
     prisma.device.deleteMany({ where: { endUserId: card.endUserId! } }),
-    prisma.cardKey.update({ where: { id: cardId }, data: { endUserId: null, status: 'inactive', activatedAt: null, expiresAt: null, unbindCount: { increment: 1 } } }),
+    prisma.cardKey.update({ where: { id: cardId }, data: { endUserId: null, status: 'inactive', unbindCount: { increment: 1 } } }),
   ]);
 
   await prisma.operationLog.create({

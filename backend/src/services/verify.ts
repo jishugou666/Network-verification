@@ -168,7 +168,7 @@ export async function activateCard(
     // allowReActivate：解绑旧用户
     await prisma.$transaction([
       prisma.heartbeatToken.updateMany({ where: { endUserId: matchedCard.endUserId, used: false }, data: { used: true } }),
-      prisma.cardKey.update({ where: { id: matchedCard.id }, data: { endUserId: null, status: 'inactive', activatedAt: null, expiresAt: null } }),
+      prisma.cardKey.update({ where: { id: matchedCard.id }, data: { endUserId: null, status: 'inactive' } }),
     ]);
   }
 
@@ -197,7 +197,7 @@ export async function activateCard(
     });
   }
 
-  const expiresAt = matchedCard.durationDays > 0 ? new Date(Date.now() + matchedCard.durationDays * 86400000) : null;
+  const expiresAt = matchedCard.expiresAt || (matchedCard.durationDays > 0 ? new Date(Date.now() + matchedCard.durationDays * 86400000) : null);
   const heartbeatToken = uuidv4();
 
   // 并行执行：更新卡密、绑定设备、创建Token（绑定设备指纹）
@@ -449,7 +449,7 @@ export async function unbindDevice(appKey: string, userId: string, heartbeatToke
 
   await prisma.$transaction([
     prisma.heartbeatToken.updateMany({ where: { endUserId: userId, used: false }, data: { used: true } }),
-    prisma.cardKey.update({ where: { id: activeCard.id }, data: { endUserId: null, status: 'inactive', activatedAt: null, expiresAt: null, unbindCount: { increment: 1 } } }),
+    prisma.cardKey.update({ where: { id: activeCard.id }, data: { endUserId: null, status: 'inactive', unbindCount: { increment: 1 } } }),
   ]);
 
   return { code: 0, message: `解绑成功（已用 ${activeCard.unbindCount + 1}/${activeCard.unbindMax} 次）`, data: { used: activeCard.unbindCount + 1, max: activeCard.unbindMax } };
