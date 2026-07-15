@@ -179,7 +179,7 @@ export default function CardDetailPage() {
           <tbody>
             {data.endUser?.devices?.map((d: any) => (
               <tr key={d.id}>
-                <td className="px-6 py-3 font-mono text-xs text-gray-600 break-all">{d.deviceFingerprint}</td>
+                <td className="px-6 py-3 font-mono text-xs text-gray-600 truncate max-w-[200px]" title={d.deviceFingerprint}>{d.deviceFingerprint.slice(0, 24)}...</td>
                 <td className="px-6 py-3">{d.deviceName || '-'}</td>
                 <td className="px-6 py-3 text-xs text-gray-500">{formatDate(d.firstSeen)}</td>
                 <td className="px-6 py-3 text-xs text-gray-500">{formatDate(d.lastSeen)}</td>
