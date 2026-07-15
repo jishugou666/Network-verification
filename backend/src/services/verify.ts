@@ -31,22 +31,22 @@ export async function getChallenge(appKey: string) {
   return { code: 0, message: 'ok', data: { challenge } };
 }
 
-// ==================== 卡密激活 ====================
-// 流程：
-// 1. 客户端调用 getChallenge 获取 challenge
-// 2. 客户端提交：cardKey(明文) + username + hardwareInfo + challengeResponse
-//    challengeResponse = HMAC-SHA256(challenge + cardKey + username, appSecret)
-// 3. 服务端校验 challengeResponse，通过后 bcrypt 比对卡密哈希
-// 4. 激活成功后绑定用户，生成设备指纹
+// ==================== 卡密激活（优化版） ====================
+// 用户名 = 设备指纹 SHA-256，自动生成无需用户输入
+// 同设备+有效期内可无数次重复登录（重新下发心跳Token）
+// 异设备使用同一卡密则拒绝（除非 allowReActivate 开启）
 
 export async function activateCard(
   appKey: string,
   cardKeyPlain: string,
-  username: string,
+  username: string, // 现在就是 deviceFingerprint
   hardwareInfo: string,
   challengeResponse: string,
   ip: string,
 ) {
+  // 并行获取 program 和 deviceFingerprint
+  const deviceFingerprint = hashDeviceFingerprint(hardwareInfo);
+
   const program = await prisma.program.findUnique({ where: { appKey } });
   if (!program) {
     return { code: 404, message: 'AppKey 无效', data: null };
@@ -55,7 +55,7 @@ export async function activateCard(
     return { code: 2006, message: '程序已停用', data: null };
   }
 
-  // 解密 AppSecret 用于校验 challengeResponse
+  // 解密 AppSecret
   let appSecret: string;
   try {
     appSecret = aesDecrypt(program.appSecretEncrypted);
@@ -64,8 +64,6 @@ export async function activateCard(
   }
 
   // 校验 challengeResponse
-  // challengeResponse = HMAC-SHA256(challenge + cardKey + username, appSecret)
-  // 注意：此处 challenge 应从上下文获取，简化处理：challengeResponse 格式为 challenge:signature
   const parts = challengeResponse.split(':');
   if (parts.length !== 2) {
     return { code: 2009, message: '挑战响应格式错误', data: null };
@@ -73,180 +71,116 @@ export async function activateCard(
   const [challenge, responseSig] = parts;
   const expectedData = challenge + cardKeyPlain + username;
   if (!hmacVerify(expectedData, responseSig, appSecret)) {
-    // 记录失败日志
-    await prisma.verifyLog.create({
-      data: { programId: program.id, action: 'activate', success: false, ip, detail: 'challenge_response_mismatch' },
-    });
     return { code: 2009, message: '挑战响应校验失败', data: null };
   }
 
-  // 查找卡密：遍历该程序下所有卡密，bcrypt 比对
+  // 查找卡密
   const allCards = await prisma.cardKey.findMany({
-    where: {
-      programId: program.id,
-      status: { in: ['inactive', 'active'] },
-    },
-    select: { id: true, cardHash: true, status: true, endUserId: true, expiresAt: true },
+    where: { programId: program.id, status: { in: ['inactive', 'active'] } },
+    select: { id: true, cardHash: true, status: true, endUserId: true, expiresAt: true, durationDays: true },
   });
 
   let matchedCard: typeof allCards[0] | null = null;
   for (const card of allCards) {
-    const match = await bcrypt.compare(cardKeyPlain, card.cardHash);
-    if (match) {
-      matchedCard = card;
-      break;
-    }
+    if (await bcrypt.compare(cardKeyPlain, card.cardHash)) { matchedCard = card; break; }
   }
 
   if (!matchedCard) {
-    await prisma.verifyLog.create({
-      data: { programId: program.id, action: 'activate', success: false, ip, detail: 'card_not_found' },
-    });
     return { code: 2001, message: '卡密无效', data: null };
   }
-
-  // 卡密状态校验
   if (matchedCard.status === 'banned') {
-    await prisma.verifyLog.create({
-      data: { programId: program.id, action: 'activate', success: false, ip, detail: 'card_banned' },
-    });
     return { code: 2004, message: '卡密已被封禁', data: null };
   }
 
-  // 卡密已激活：检查是否允许重复激活
+  // ===== 核心逻辑：同设备重复激活判断 =====
   if (matchedCard.status === 'active' && matchedCard.endUserId) {
-    if (!program.allowReActivate) {
-      await prisma.verifyLog.create({
-        data: { programId: program.id, action: 'activate', success: false, ip, detail: 'card_already_activated' },
-      });
-      return { code: 2002, message: '卡密已被激活，不允许重复激活', data: null };
-    }
-    // 允许重复激活：将旧用户解绑
-    await prisma.cardKey.update({
-      where: { id: matchedCard.id },
-      data: { endUserId: null, status: 'inactive', activatedAt: null, expiresAt: null },
+    // 检查已绑定的 endUser 下是否有与当前 deviceFingerprint 匹配的设备
+    const existingDevice = await prisma.device.findUnique({
+      where: { endUserId_deviceFingerprint: { endUserId: matchedCard.endUserId, deviceFingerprint } },
     });
+
+    if (existingDevice) {
+      // ★ 同一设备回来：直接刷新 Token，不拒绝
+      const endUser = await prisma.endUser.findUnique({ where: { id: matchedCard.endUserId } });
+      if (!endUser || endUser.status === 'banned') {
+        return { code: 2007, message: '用户已被封禁或不存在', data: null };
+      }
+
+      // 失效旧 Token，生成新 Token
+      await prisma.heartbeatToken.updateMany({ where: { endUserId: matchedCard.endUserId, used: false }, data: { used: true } });
+
+      const heartbeatToken = uuidv4();
+      const expiresAt = matchedCard.durationDays > 0 ? new Date(Date.now() + matchedCard.durationDays * 86400000) : null;
+
+      // 并行：更新卡密/设备/创建Token/更新用户
+      await Promise.all([
+        prisma.cardKey.update({ where: { id: matchedCard.id }, data: { expiresAt, activatedAt: new Date() } }),
+        prisma.device.update({ where: { id: existingDevice.id }, data: { lastSeen: new Date(), ip } }),
+        prisma.heartbeatToken.create({ data: { endUserId: matchedCard.endUserId, token: heartbeatToken, expiresAt: new Date(Date.now() + program.heartbeatTimeout * 1000) } }),
+        prisma.endUser.update({ where: { id: matchedCard.endUserId }, data: { lastOnline: new Date(), lastIp: ip } }),
+      ]);
+
+      // 加密响应
+      const responseData = JSON.stringify({ userId: matchedCard.endUserId, username: endUser.username, heartbeatToken, expiresAt: expiresAt?.toISOString() || null, maxDevices: program.maxDevices, deviceCount: 1 });
+      const encrypted = encryptResponse(responseData, challenge);
+
+      return { code: 0, message: '设备已绑定，登录成功', data: { ...encrypted, userId: matchedCard.endUserId } };
+    }
+
+    // 不同设备尝试使用同一卡密 → 拒绝
+    if (!program.allowReActivate) {
+      return { code: 2002, message: '卡密已被其他设备激活', data: null };
+    }
+    // allowReActivate：解绑旧用户
+    await prisma.$transaction([
+      prisma.heartbeatToken.updateMany({ where: { endUserId: matchedCard.endUserId, used: false }, data: { used: true } }),
+      prisma.cardKey.update({ where: { id: matchedCard.id }, data: { endUserId: null, status: 'inactive', activatedAt: null, expiresAt: null } }),
+    ]);
   }
 
-  // 检查卡密是否已过期
+  // ===== 卡密过期检查 =====
   if (matchedCard.expiresAt && matchedCard.expiresAt < new Date()) {
-    // 更新状态为过期
     await prisma.cardKey.update({ where: { id: matchedCard.id }, data: { status: 'expired' } });
-    await prisma.verifyLog.create({
-      data: { programId: program.id, action: 'activate', success: false, ip, detail: 'card_expired' },
-    });
     return { code: 2003, message: '卡密已过期', data: null };
   }
 
-  // 生成设备指纹
-  const deviceFingerprint = hashDeviceFingerprint(hardwareInfo);
-
-  // 创建或查找终端用户
+  // ===== 新用户激活（卡密首次使用或被 allowReActivate 解绑后） =====
+  // username 即 deviceFingerprint，查找是否已有同名 endUser
   let endUser = await prisma.endUser.findFirst({
-    where: { programId: program.id, username },
+    where: { programId: program.id, devices: { some: { deviceFingerprint } } },
+    select: { id: true, status: true },
   });
 
   if (endUser) {
-    // 用户已存在，检查是否被封禁
     if (endUser.status === 'banned') {
-      await prisma.verifyLog.create({
-        data: { programId: program.id, action: 'activate', success: false, ip, detail: 'user_banned' },
-      });
       return { code: 2007, message: '用户已被封禁', data: null };
     }
-    // 更新用户信息
-    await prisma.endUser.update({
-      where: { id: endUser.id },
-      data: { lastOnline: new Date(), lastIp: ip },
-    });
+    // 更新用户最后在线
+    await prisma.endUser.update({ where: { id: endUser.id }, data: { lastOnline: new Date(), lastIp: ip } });
   } else {
     endUser = await prisma.endUser.create({
-      data: {
-        agentId: program.agentId,
-        programId: program.id,
-        username,
-        lastOnline: new Date(),
-        lastIp: ip,
-      },
+      data: { agentId: program.agentId, programId: program.id, username: deviceFingerprint, lastOnline: new Date(), lastIp: ip },
     });
   }
 
-  // 计算过期时间
-  const card = await prisma.cardKey.findUnique({ where: { id: matchedCard.id } });
-  let expiresAt: Date | null = null;
-  if (card && card.durationDays > 0) {
-    expiresAt = new Date(Date.now() + card.durationDays * 86400000);
-  }
-
-  // 更新卡密状态
-  await prisma.cardKey.update({
-    where: { id: matchedCard.id },
-    data: {
-      status: 'active',
-      endUserId: endUser.id,
-      activatedAt: new Date(),
-      expiresAt,
-    },
-  });
-
-  // 绑定设备
-  await prisma.device.upsert({
-    where: {
-      endUserId_deviceFingerprint: {
-        endUserId: endUser.id,
-        deviceFingerprint,
-      },
-    },
-    update: { lastSeen: new Date(), ip },
-    create: {
-      endUserId: endUser.id,
-      programId: program.id,
-      deviceFingerprint,
-      lastSeen: new Date(),
-      ip,
-    },
-  });
-
-  // 生成一次性心跳 Token
+  const expiresAt = matchedCard.durationDays > 0 ? new Date(Date.now() + matchedCard.durationDays * 86400000) : null;
   const heartbeatToken = uuidv4();
-  await prisma.heartbeatToken.create({
-    data: {
-      endUserId: endUser.id,
-      token: heartbeatToken,
-      expiresAt: new Date(Date.now() + program.heartbeatTimeout * 1000),
-    },
-  });
 
-  // 记录成功日志
-  await prisma.verifyLog.create({
-    data: {
-      programId: program.id,
-      action: 'activate',
-      success: true,
-      ip,
-      detail: JSON.stringify({ endUserId: endUser.id, deviceFingerprint }),
-    },
-  });
+  // 并行执行：更新卡密、绑定设备、创建Token
+  await Promise.all([
+    prisma.cardKey.update({ where: { id: matchedCard.id }, data: { status: 'active', endUserId: endUser.id, activatedAt: new Date(), expiresAt } }),
+    prisma.device.upsert({
+      where: { endUserId_deviceFingerprint: { endUserId: endUser.id, deviceFingerprint } },
+      update: { lastSeen: new Date(), ip },
+      create: { endUserId: endUser.id, programId: program.id, deviceFingerprint, lastSeen: new Date(), ip },
+    }),
+    prisma.heartbeatToken.create({ data: { endUserId: endUser.id, token: heartbeatToken, expiresAt: new Date(Date.now() + program.heartbeatTimeout * 1000) } }),
+  ]);
 
-  // 加密响应
-  const responseData = JSON.stringify({
-    userId: endUser.id,
-    username: endUser.username,
-    heartbeatToken,
-    expiresAt: expiresAt?.toISOString() || null,
-    maxDevices: program.maxDevices,
-    deviceCount: 1,
-  });
+  const responseData = JSON.stringify({ userId: endUser.id, username: deviceFingerprint, heartbeatToken, expiresAt: expiresAt?.toISOString() || null, maxDevices: program.maxDevices, deviceCount: 1 });
   const encrypted = encryptResponse(responseData, challenge);
 
-  return {
-    code: 0,
-    message: '激活成功',
-    data: {
-      ...encrypted,
-      userId: endUser.id,
-    },
-  };
+  return { code: 0, message: '激活成功', data: { ...encrypted, userId: endUser.id } };
 }
 
 // ==================== 心跳验证 ====================
