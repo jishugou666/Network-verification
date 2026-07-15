@@ -1,4 +1,4 @@
-﻿import { Request, Response, NextFunction } from 'express';
+import { Request, Response, NextFunction } from 'express';
 import { PrismaClient } from '@prisma/client';
 import { config } from '../config';
 import { ErrorCode } from '../types';
@@ -42,7 +42,7 @@ export async function rateLimitMiddleware(req: Request, res: Response, next: Nex
     const ip = getClientIp(req);
     const key = `ip:${ip}`;
     if (checkMemLimit(key)) {
-      fail(res, ErrorCode.TOOANY_REQUESTS, '请求过于频繁，请稍后重试', 429);
+      fail(res, ErrorCode.TOO_MANY_REQUESTS, '请求过于频繁，请稍后重试', 429);
       return;
     }
     next();
@@ -53,7 +53,7 @@ export async function rateLimitMiddleware(req: Request, res: Response, next: Nex
   // 程序与来源 IP 双计数，避免一个来源耗尽全部正常用户的额度
   const key = `app:${appKey}:ip:${ip}`;
   if (checkMemLimit(key)) {
-    fail(res, ErrorCode.TOOANY_REQUESTS, `请求频率超过限制（${config.rateLimitPerMinute}次/分钟）`, 429);
+    fail(res, ErrorCode.TOO_MANY_REQUESTS, `请求频率超过限制（${config.rateLimitPerMinute}次/分钟）`, 429);
     return;
   }
 
@@ -86,7 +86,7 @@ export async function rateLimitMiddleware(req: Request, res: Response, next: Nex
     });
 
     if (count > config.rateLimitPerMinute) {
-      fail(res, ErrorCode.TOOANY_REQUESTS, `请求频率超过限制（${config.rateLimitPerMinute}次/分钟）`, 429);
+      fail(res, ErrorCode.TOO_MANY_REQUESTS, `请求频率超过限制（${config.rateLimitPerMinute}次/分钟）`, 429);
       return;
     }
   } catch {
