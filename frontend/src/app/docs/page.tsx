@@ -21,6 +21,7 @@ export default function DocsPage() {
             { label: '卡密激活', href: '#activate' },
             { label: '心跳验证', href: '#heartbeat' },
             { label: '登出', href: '#logout' },
+            { label: '远程脚本', href: '#script' },
             { label: '错误码', href: '#errors' },
             { label: '硬件采集', href: '#hardware' },
             { label: 'Python 示例', href: '#example-python' },
@@ -174,12 +175,45 @@ export default function DocsPage() {
         <CodeBlock code={LOGOUT_RESP} />
       </Section>
 
-      <Section id="response-format" title="8. 统一响应格式">
+      <Section id="script" title="8. 远程脚本下发">
+        <EndpointBadge method="POST" path="/api/client/script" />
+        <p className="mt-2">获取加密的功能脚本代码。必须在卡密激活成功后才能调用，需要提供有效的 heartbeatToken。</p>
+
+        <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-xl text-xs text-blue-800">
+          <strong>安全设计：</strong>脚本经过三层加密——服务器 AES-256-GCM 加密存储、HMAC 签名校验请求、传输层 challenge 派生密钥再次加密。未通过卡密验证<strong>无法获取</strong>脚本内容。
+        </div>
+
+        <h4 className="text-sm font-semibold text-gray-800 mt-4">请求体</h4>
+        <table className="w-full text-sm mt-2">
+          <thead><tr className="bg-gray-50"><th className="text-left px-4 py-2 font-medium text-gray-600">参数</th><th className="text-left px-4 py-2 font-medium text-gray-600">类型</th><th className="text-left px-4 py-2 font-medium text-gray-600">说明</th></tr></thead>
+          <tbody className="divide-y divide-gray-100">
+            <tr><td className="px-4 py-2 font-mono text-xs">appKey</td><td className="px-4 py-2 text-gray-500">string</td><td className="px-4 py-2 text-gray-600">程序 AppKey</td></tr>
+            <tr><td className="px-4 py-2 font-mono text-xs">userId</td><td className="px-4 py-2 text-gray-500">string</td><td className="px-4 py-2 text-gray-600">激活时返回的用户 ID</td></tr>
+            <tr><td className="px-4 py-2 font-mono text-xs">heartbeatToken</td><td className="px-4 py-2 text-gray-500">string</td><td className="px-4 py-2 text-gray-600">有效的未使用心跳 Token</td></tr>
+            <tr><td className="px-4 py-2 font-mono text-xs">timestamp</td><td className="px-4 py-2 text-gray-500">number</td><td className="px-4 py-2 text-gray-600">毫秒时间戳</td></tr>
+            <tr><td className="px-4 py-2 font-mono text-xs">nonce</td><td className="px-4 py-2 text-gray-500">string</td><td className="px-4 py-2 text-gray-600">随机字符串</td></tr>
+            <tr><td className="px-4 py-2 font-mono text-xs">signature</td><td className="px-4 py-2 text-gray-500">string</td><td className="px-4 py-2 text-gray-600">HMAC-SHA256 签名</td></tr>
+          </tbody>
+        </table>
+
+        <h4 className="text-sm font-semibold text-gray-800 mt-4">成功响应</h4>
+        <CodeBlock code={SCRIPT_RESP} />
+
+        <h4 className="text-sm font-semibold text-gray-800 mt-4">客户端解密步骤</h4>
+        <div className="space-y-2 mt-2 text-sm">
+          <p>1. 获取响应中的 <code>challenge</code>、<code>encrypted</code>、<code>iv</code></p>
+          <p>2. 计算解密密钥：<code>key = SHA-256(challenge)</code></p>
+          <p>3. AES-256-CBC 解密：<code>script = AES-256-CBC-Decrypt(base64(encrypted), key, base64(iv))</code></p>
+          <p>4. 将解密后的 JavaScript 代码通过 <code>new Function(script)()</code> 或 <code>eval()</code> 执行</p>
+        </div>
+      </Section>
+
+      <Section id="response-format" title="9. 统一响应格式">
         <p>所有接口遵循统一的 JSON 响应格式：</p>
         <CodeBlock code={RESPONSE_FORMAT} />
       </Section>
 
-      <Section id="errors" title="9. 错误码参考">
+      <Section id="errors" title="10. 错误码参考">
         <table className="w-full text-sm">
           <thead>
             <tr className="bg-gray-50">
@@ -206,11 +240,12 @@ export default function DocsPage() {
             <tr><td className="px-4 py-2 font-mono text-xs text-red-600">2007</td><td className="px-4 py-2 font-mono text-xs text-gray-500">USER_BANNED</td><td className="px-4 py-2 text-gray-600">用户已被封禁</td></tr>
             <tr><td className="px-4 py-2 font-mono text-xs text-red-600">2008</td><td className="px-4 py-2 font-mono text-xs text-gray-500">HEARTBEAT_TOKEN_INVALID</td><td className="px-4 py-2 text-gray-600">心跳 Token 无效/已使用/已过期</td></tr>
             <tr><td className="px-4 py-2 font-mono text-xs text-red-600">2009</td><td className="px-4 py-2 font-mono text-xs text-gray-500">CHALLENGE_FAILED</td><td className="px-4 py-2 text-gray-600">挑战响应校验失败</td></tr>
+            <tr><td className="px-4 py-2 font-mono text-xs text-red-600">2010</td><td className="px-4 py-2 font-mono text-xs text-gray-500">SCRIPT_NOT_ENABLED</td><td className="px-4 py-2 text-gray-600">程序未启用脚本下发</td></tr>
           </tbody>
         </table>
       </Section>
 
-      <Section id="hardware" title="10. 硬件信息采集指南">
+      <Section id="hardware" title="11. 硬件信息采集指南">
         <p>硬件信息用于生成设备指纹（服务端 SHA-256 哈希），需采集以下字段并序列化为 JSON 字符串：</p>
         <table className="w-full text-sm mt-3">
           <thead><tr className="bg-gray-50"><th className="text-left px-4 py-2 font-medium text-gray-600">字段</th><th className="text-left px-4 py-2 font-medium text-gray-600">类型</th><th className="text-left px-4 py-2 font-medium text-gray-600">说明</th><th className="text-left px-4 py-2 font-medium text-gray-600">采集方式</th></tr></thead>
@@ -235,7 +270,7 @@ export default function DocsPage() {
         <p className="mt-3 text-xs text-gray-500">服务端会对硬件信息 JSON 做规范化（按 key 排序 + SHA-256），因此字段名和结构必须保持一致。</p>
       </Section>
 
-      <Section id="flow" title="11. 完整调用流程">
+      <Section id="flow" title="12. 完整调用流程">
         <div className="space-y-3 text-sm">
           <FlowStep num={1} title="获取挑战" desc="POST /api/client/challenge + 获得 128 位随机 challenge" />
           <FlowStep num={2} title="激活卡密" desc="POST /api/client/activate + 提交 cardKey + username + hardwareInfo + challengeResponse + 获得 userId + encrypted(heartbeatToken)" />
@@ -247,7 +282,7 @@ export default function DocsPage() {
         </div>
       </Section>
 
-      <Section id="examples" title="12. 代码示例">
+      <Section id="examples" title="13. 代码示例">
         <Tabs tabs={[
           { id: 'python', label: 'Python' },
           { id: 'csharp', label: 'C# (.NET)' },
@@ -357,6 +392,23 @@ const LOGOUT_RESP = [
   '  "message": "登出成功",',
   '  "data": null',
   "}",
+].join('\n');
+
+const SCRIPT_RESP = [
+  "{",
+  '  "code": 0,',
+  '  "message": "ok",',
+  '  "data": {',
+  '    "encrypted": "base64密文...",',
+  '    "iv": "base64初始向量...",',
+  '    "challenge": "传输层加密密钥派生源",',
+  '    "userId": "uuid-xxx",',
+  '    "scriptSize": 2048',
+  "  }",
+  "}",
+  "",
+  "// 解密 encrypted 后得到用户上传的 JavaScript 功能代码",
+  "// 通过 new Function(script)() 或 eval() 执行",
 ].join('\n');
 
 const RESPONSE_FORMAT = [

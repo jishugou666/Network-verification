@@ -256,6 +256,10 @@ export async function getProgramIntegration(agentId: string, role: string, progr
       appKey: true,
       appSecretEncrypted: true,
       status: true,
+      scriptEncrypted: true,
+      scriptPreview: true,
+      scriptEnabled: true,
+      scriptSize: true,
     },
   });
 
@@ -273,6 +277,81 @@ export async function getProgramIntegration(agentId: string, role: string, progr
       appSecret,
       name: program.name,
       slug: program.slug,
+      scriptEnabled: program.scriptEnabled,
+      scriptPreview: program.scriptPreview,
+      scriptSize: program.scriptSize,
     },
   };
+}
+
+// ==================== 保存脚本代码 ====================
+export async function saveProgramScript(agentId: string, role: string, programId: string, scriptCode: string) {
+  const where: any = { id: programId };
+  if (role !== 'root') {
+    where.agentId = agentId;
+  }
+
+  const program = await prisma.program.findUnique({ where });
+  if (!program) {
+    return { code: 404, message: '程序不存在或无权操作', data: null };
+  }
+
+  const trimmed = scriptCode.trim();
+  if (!trimmed) {
+    return { code: 400, message: '脚本代码不能为空', data: null };
+  }
+
+  const encrypted = aesEncrypt(trimmed);
+  const preview = trimmed.length > 256 ? trimmed.substring(0, 256) + '...' : trimmed;
+
+  await prisma.program.update({
+    where: { id: programId },
+    data: {
+      scriptEncrypted: encrypted,
+      scriptPreview: preview,
+      scriptEnabled: true,
+      scriptSize: trimmed.length,
+    },
+  });
+
+  await prisma.operationLog.create({
+    data: {
+      userId: agentId,
+      action: 'save_script',
+      target: 'program',
+      targetId: programId,
+      detail: JSON.stringify({ scriptSize: trimmed.length }),
+    },
+  });
+
+  return { code: 0, message: '脚本保存成功', data: { scriptEnabled: true, scriptSize: trimmed.length, scriptPreview: preview } };
+}
+
+// ==================== 禁用脚本下发 ====================
+export async function disableProgramScript(agentId: string, role: string, programId: string) {
+  const where: any = { id: programId };
+  if (role !== 'root') {
+    where.agentId = agentId;
+  }
+
+  const program = await prisma.program.findUnique({ where });
+  if (!program) {
+    return { code: 404, message: '程序不存在或无权操作', data: null };
+  }
+
+  await prisma.program.update({
+    where: { id: programId },
+    data: { scriptEnabled: false },
+  });
+
+  await prisma.operationLog.create({
+    data: {
+      userId: agentId,
+      action: 'disable_script',
+      target: 'program',
+      targetId: programId,
+    },
+  });
+
+  return { code: 0, message: '脚本下发已禁用', data: null };
 }

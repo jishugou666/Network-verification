@@ -67,6 +67,8 @@ export const programApi = {
   delete: (id: string) => api.delete(`/programs/${id}`),
   toggleStatus: (id: string, status: string) => api.put(`/programs/${id}/status`, { status }),
   getIntegration: (id: string) => api.get<any>(`/programs/${id}/integration`),
+  saveScript: (id: string, scriptCode: string) => api.put<any>(`/programs/${id}/script`, { scriptCode }),
+  disableScript: (id: string) => api.delete<any>(`/programs/${id}/script`),
 };
 
 // Cards

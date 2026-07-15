@@ -75,6 +75,29 @@ router.post('/heartbeat', signatureMiddleware, async (req: Request, res: Respons
   }
 });
 
+// ==================== 脚本下发 ====================
+// POST /api/client/script
+// Body: { appKey, userId, heartbeatToken, timestamp, nonce, signature }
+// 三次加密保障：DB存储AES-256-GCM → 传输层challenge派生密钥加密 → HMAC签名校验
+// 客户端必须已激活且持有有效 heartbeatToken 才能获取
+router.post('/script', signatureMiddleware, async (req: Request, res: Response) => {
+  try {
+    const { appKey, userId, heartbeatToken } = req.body;
+    if (!userId || !heartbeatToken) {
+      fail(res, ErrorCode.BAD_REQUEST, '缺少必要参数');
+      return;
+    }
+    const result = await verifyService.getEncryptedScript(appKey, userId, heartbeatToken);
+    if (result.code === 0) {
+      success(res, result.data, result.message);
+    } else {
+      fail(res, result.code, result.message);
+    }
+  } catch (e) {
+    serverError(res);
+  }
+});
+
 // ==================== 登出 ====================
 // POST /api/client/logout
 // Body: { appKey, userId, timestamp, nonce, signature }

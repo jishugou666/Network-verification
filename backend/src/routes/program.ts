@@ -118,4 +118,37 @@ router.put('/:id/status', async (req: Request, res: Response) => {
   }
 });
 
+// 保存脚本代码
+router.put('/:id/script', async (req: Request, res: Response) => {
+  try {
+    const { scriptCode } = req.body;
+    if (scriptCode === undefined || scriptCode === null) {
+      fail(res, ErrorCode.BAD_REQUEST, '缺少脚本代码');
+      return;
+    }
+    const result = await programService.saveProgramScript(req.ctx!.userId, req.ctx!.role, req.params.id, scriptCode);
+    if (result.code === 0) {
+      success(res, result.data, result.message);
+    } else {
+      fail(res, result.code, result.message, result.code === 404 ? 404 : 400);
+    }
+  } catch (e) {
+    serverError(res);
+  }
+});
+
+// 禁用脚本下发
+router.delete('/:id/script', async (req: Request, res: Response) => {
+  try {
+    const result = await programService.disableProgramScript(req.ctx!.userId, req.ctx!.role, req.params.id);
+    if (result.code === 0) {
+      success(res, null, result.message);
+    } else {
+      fail(res, result.code, result.message, 404);
+    }
+  } catch (e) {
+    serverError(res);
+  }
+});
+
 export default router;

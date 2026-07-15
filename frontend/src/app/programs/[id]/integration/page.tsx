@@ -2453,11 +2453,19 @@ export default function IntegrationPage() {
   const [connStatus, setConnStatus] = useState<'checking' | 'connected' | 'disconnected'>('checking');
   const [connLatency, setConnLatency] = useState<number | null>(null);
   const [connError, setConnError] = useState<string | null>(null);
+  const [scriptCode, setScriptCode] = useState('');
+  const [scriptSaving, setScriptSaving] = useState(false);
+  const [scriptEnabled, setScriptEnabled] = useState(false);
+  const [scriptPreview, setScriptPreview] = useState('');
+  const [scriptSize, setScriptSize] = useState(0);
 
   useEffect(() => {
     programApi.getIntegration(id).then(res => {
       if (res.code === 0) {
         setProgram(res.data);
+        setScriptEnabled(res.data.scriptEnabled || false);
+        setScriptPreview(res.data.scriptPreview || '');
+        setScriptSize(res.data.scriptSize || 0);
       } else {
         toast.error(res.message);
       }
@@ -2506,6 +2514,35 @@ export default function IntegrationPage() {
   }, [apiBase]);
 
   const code = program ? generateCode(activeLang, program.appKey, program.appSecret, apiBase + '/api') : '';
+
+  const handleSaveScript = async () => {
+    if (!scriptCode.trim()) { toast.error('请输入脚本代码'); return; }
+    setScriptSaving(true);
+    try {
+      const res = await programApi.saveScript(id, scriptCode);
+      if (res.code === 0) {
+        toast.success('脚本保存成功');
+        setScriptEnabled(true);
+        setScriptSize(res.data?.scriptSize || scriptCode.length);
+        setScriptPreview(res.data?.scriptPreview || '');
+      } else {
+        toast.error(res.message);
+      }
+    } catch { toast.error('保存失败'); }
+    finally { setScriptSaving(false); }
+  };
+
+  const handleDisableScript = async () => {
+    try {
+      const res = await programApi.disableScript(id);
+      if (res.code === 0) {
+        toast.success('脚本下发已禁用');
+        setScriptEnabled(false);
+      } else {
+        toast.error(res.message);
+      }
+    } catch { toast.error('操作失败'); }
+  };
 
   const handleCopy = useCallback(() => {
     navigator.clipboard.writeText(code).then(() => {
@@ -2586,18 +2623,73 @@ export default function IntegrationPage() {
         </div>
       </div>
 
-      {/* Keys Display */}
-      <div className="glass mb-6 p-4">
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <span className="text-xs text-gray-400">AppKey</span>
-            <code className="block text-sm font-mono text-gray-700 mt-1 break-all">{program.appKey}</code>
+      {/* Script Editor */}
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 mb-6">
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-3">
+            <h3 className="text-sm font-semibold text-gray-800">远程脚本下发</h3>
+            {scriptEnabled && (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-green-50 text-green-700 text-xs font-medium">
+                <span className="w-1.5 h-1.5 rounded-full bg-green-500" />
+                已启用
+              </span>
+            )}
+            {!scriptEnabled && (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-gray-100 text-gray-500 text-xs font-medium">
+                <span className="w-1.5 h-1.5 rounded-full bg-gray-400" />
+                未启用
+              </span>
+            )}
           </div>
-          <div>
-            <span className="text-xs text-gray-400">AppSecret</span>
-            <code className="block text-sm font-mono text-gray-700 mt-1 break-all">{program.appSecret}</code>
+          <div className="flex items-center gap-2">
+            {scriptEnabled && (
+              <button
+                onClick={handleDisableScript}
+                className="px-3 py-1.5 text-xs font-medium text-red-600 bg-red-50 hover:bg-red-100 rounded-lg transition-colors"
+              >
+                禁用下发
+              </button>
+            )}
+            <button
+              onClick={handleSaveScript}
+              disabled={scriptSaving}
+              className="px-4 py-1.5 text-xs font-medium text-white bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 rounded-lg shadow-sm shadow-blue-500/20 transition-all disabled:opacity-50"
+            >
+              {scriptSaving ? '保存中...' : '保存脚本'}
+            </button>
           </div>
         </div>
+
+        <div className="mb-3 p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-800">
+          <strong>安全机制：</strong>脚本在服务器 AES-256-GCM 加密存储 → 客户端激活后才能请求 → 传输层使用 challenge 派生密钥再次加密 → 客户端解密后执行。不验证卡密<strong>无法获取</strong>脚本内容。
+        </div>
+
+        <textarea
+          className="w-full h-64 px-4 py-3 text-sm font-mono border border-gray-200 rounded-xl focus:border-blue-400 focus:ring-4 focus:ring-blue-50 outline-none resize-y bg-gray-50 text-gray-800 placeholder-gray-400"
+          placeholder={`// 在此粘贴你的 JavaScript 功能代码
+// 客户端激活卡密后会自动获取并执行此脚本
+// 示例：
+(function() {
+  'use strict';
+  console.log('功能代码已加载');
+  // 你的业务逻辑...
+})();`}
+          value={scriptCode}
+          onChange={e => setScriptCode(e.target.value)}
+          spellCheck={false}
+        />
+
+        <div className="flex items-center justify-between mt-2 text-xs text-gray-400">
+          <span>脚本将在客户端验证通过后自动下发并执行</span>
+          <span>{scriptCode.length.toLocaleString()} 字符{scriptSize > 0 ? `｜上次保存 ${scriptSize.toLocaleString()} 字符` : ''}</span>
+        </div>
+
+        {scriptPreview && (
+          <div className="mt-4 p-3 bg-gray-50 border border-gray-200 rounded-xl">
+            <div className="text-xs font-medium text-gray-500 mb-2">上次保存预览</div>
+            <pre className="text-xs text-gray-600 max-h-24 overflow-hidden whitespace-pre-wrap font-mono">{scriptPreview}</pre>
+          </div>
+        )}
       </div>
 
       {/* Language Tabs */}

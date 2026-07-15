@@ -380,6 +380,73 @@ export async function heartbeat(
   };
 }
 
+// ==================== 加密脚本下发 ====================
+// 客户端必须已激活且持有有效 heartbeatToken
+// 脚本在 DB 中 AES-256-GCM 加密存储，下发时重新加密
+export async function getEncryptedScript(appKey: string, userId: string, heartbeatToken: string) {
+  const program = await prisma.program.findUnique({ where: { appKey } });
+  if (!program) {
+    return { code: 404, message: 'AppKey 无效', data: null };
+  }
+  if (program.status === 'disabled') {
+    return { code: 2006, message: '程序已停用', data: null };
+  }
+  if (!program.scriptEnabled || !program.scriptEncrypted) {
+    return { code: 2010, message: '该程序未启用脚本下发', data: null };
+  }
+
+  // 校验心跳 Token
+  const token = await prisma.heartbeatToken.findUnique({ where: { token: heartbeatToken } });
+  if (!token || token.used) {
+    return { code: 2008, message: '心跳 Token 无效或已使用', data: null };
+  }
+  if (token.expiresAt < new Date()) {
+    return { code: 2008, message: '心跳 Token 已过期', data: null };
+  }
+  if (token.endUserId !== userId) {
+    return { code: 2008, message: '心跳 Token 与用户不匹配', data: null };
+  }
+
+  // 检查用户是否被封禁
+  const endUser = await prisma.endUser.findUnique({ where: { id: userId } });
+  if (!endUser || endUser.status === 'banned') {
+    return { code: 2007, message: '用户已被封禁或不存在', data: null };
+  }
+
+  // 从 DB 解密脚本明文（使用全局 AES 密钥）
+  let plainScript: string;
+  try {
+    plainScript = aesDecrypt(program.scriptEncrypted);
+  } catch {
+    return { code: 500, message: '脚本解密失败', data: null };
+  }
+
+  // 生成新的 challenge 用于传输层加密
+  const challenge = generateChallenge();
+  const encrypted = encryptResponse(plainScript, challenge);
+
+  // 记录日志
+  await prisma.verifyLog.create({
+    data: {
+      programId: program.id,
+      action: 'script_fetch',
+      success: true,
+      detail: JSON.stringify({ userId, scriptSize: program.scriptSize }),
+    },
+  });
+
+  return {
+    code: 0,
+    message: 'ok',
+    data: {
+      ...encrypted,
+      challenge,
+      userId,
+      scriptSize: program.scriptSize,
+    },
+  };
+}
+
 // ==================== 登出 ====================
 export async function logout(appKey: string, userId: string, ip: string) {
   const program = await prisma.program.findUnique({ where: { appKey } });
