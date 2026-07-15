@@ -1,10 +1,14 @@
-'use client';
+﻿'use client';
 
 import { useState, useEffect } from 'react';
 import { userApi } from '@/lib/api';
+import type {Data } from '@/lib/types';
+
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+const _:Data = {} as any; from '@/lib/api';
 
 export default function DashboardPage() {
-  const [data, setData] = useState<any>({});
+  const [data, setData] = useState<Data>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -12,7 +16,7 @@ export default function DashboardPage() {
     userApi.dashboard()
       .then(res => {
         if (res.code === 0 && res.data) {
-          setData(res.data);
+          setData(res.data asData);
         } else {
           setError(res.message || '加载失败');
         }

@@ -1,11 +1,9 @@
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
+﻿const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
 
 let authToken: string | null = null;
 
 if (typeof window !== 'undefined') {
   authToken = localStorage.getItem('token');
-}
-
 export function setToken(token: string | null) {
   authToken = token;
   if (typeof window !== 'undefined') {
@@ -15,16 +13,13 @@ export function setToken(token: string | null) {
       localStorage.removeItem('token');
     }
   }
-}
-
 export function getToken(): string | null {
   if (typeof window !== 'undefined') {
-    return localStorage.getItem('token');
+    localStorage.getItem('token');
   }
-  return authToken;
-}
-
-async function request<T>(path: string, options: RequestInit = {}): Promise<{ code: number; message: string; data: T | null }> {
+  // SSR 时返回模块级变量（仅在客户端初始化时赋值）
+  authToken;
+async function request<T>(path: string, options: Request = {}): Promise<{ code: number; message: string; data: T | null }> {
   const token = getToken();
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
@@ -40,9 +35,7 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<{ co
   });
 
   const json = await res.json();
-  return json;
-}
-
+  json;
 export const api = {
   get: <T>(path: string) => request<T>(path),
   post: <T>(path: string, body?: any) => request<T>(path, { method: 'POST', body: JSON.stringify(body) }),
@@ -70,6 +63,7 @@ export const programApi = {
   saveScript: (id: string, scriptCode: string) => api.put<any>(`/programs/${id}/script`, { scriptCode }),
   disableScript: (id: string) => api.delete<any>(`/programs/${id}/script`),
   obfuscate: (code: string) => api.post<any>('/programs/obfuscate', { code }),
+  reobfuscate: (id: string) => api.post<any>(`/programs/${id}/reobfuscate`),
   getUIConfig: (id: string) => api.get<any>(`/programs/${id}/ui-config`),
   updateUIConfig: (id: string, config: any) => api.put<any>(`/programs/${id}/ui-config`, config),
 };
@@ -78,7 +72,7 @@ export const programApi = {
 export const cardApi = {
   list: (params: any = {}) => {
     const qs = new URLSearchParams(params).toString();
-    return api.get<{ cards: any[]; total: number }>(`/cards?${qs}`);
+    api.get<{ cards: any[]; total: number }>(`/cards?${qs}`);
   },
   generate: (data: any) => api.post<{ cards: string[] }>('/cards/generate', data),
   ban: (cardIds: string[], reason?: string) => api.post('/cards/ban', { cardIds, reason }),
@@ -87,13 +81,14 @@ export const cardApi = {
   resetDevice: (id: string) => api.post(`/cards/${id}/reset-device`),
   getDetail: (id: string) => api.get<any>(`/cards/${id}`),
   unbind: (id: string) => api.post<any>(`/cards/${id}/unbind`),
+  export: (programId: string, format: string = 'txt') => api.get<any>(`/cards/export/${programId}?format=${format}`),
 };
 
 // Users
 export const userApi = {
   listEndUsers: (params: any = {}) => {
     const qs = new URLSearchParams(params).toString();
-    return api.get<{ users: any[]; total: number }>(`/end-users?${qs}`);
+    api.get<{ users: any[]; total: number }>(`/end-users?${qs}`);
   },
   getEndUser: (id: string) => api.get<any>(`/end-users/${id}`),
   banEndUser: (id: string, reason?: string) => api.post(`/end-users/${id}/ban`, { reason }),
@@ -101,7 +96,7 @@ export const userApi = {
   dashboard: () => api.get<any>('/dashboard'),
   listAgents: (params: any = {}) => {
     const qs = new URLSearchParams(params).toString();
-    return api.get<{ agents: any[]; total: number }>(`/agents?${qs}`);
+    api.get<{ agents: any[]; total: number }>(`/agents?${qs}`);
   },
   toggleAgentStatus: (id: string) => api.post(`/agents/${id}/toggle-status`),
 };

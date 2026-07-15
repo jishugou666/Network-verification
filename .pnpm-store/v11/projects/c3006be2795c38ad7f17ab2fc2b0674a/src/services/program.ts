@@ -390,6 +390,71 @@ export async function disableProgramScript(agentId: string, role: string, progra
   return { code: 0, message: '脚本下发已禁用', data: null };
 }
 
+// ==================== 重新混淆已保存脚本 ====================
+export async function reobfuscateProgramScript(agentId: string, role: string, programId: string) {
+  const where: any = { id: programId };
+  if (role !== 'root') {
+    where.agentId = agentId;
+  }
+
+  const program = await prisma.program.findUnique({ where });
+  if (!program) {
+    return { code: 404, message: '程序不存在或无权操作', data: null };
+  }
+  if (!program.scriptEncrypted) {
+    return { code: 400, message: '该程序尚未保存脚本代码', data: null };
+  }
+
+  // 解密当前脚本
+  let plainScript: string;
+  try {
+    plainScript = aesDecrypt(program.scriptEncrypted);
+  } catch {
+    return { code: 500, message: '脚本解密失败', data: null };
+  }
+
+  // 重新混淆
+  const obfuscateResult = await obfuscateScript(plainScript);
+  if (obfuscateResult.code !== 0) {
+    return obfuscateResult;
+  }
+
+  const obfuscatedCode = obfuscateResult.data!.obfuscated;
+  const encrypted = aesEncrypt(obfuscatedCode);
+  const maxPreviewLen = 250;
+  const preview = obfuscatedCode.length > maxPreviewLen ? obfuscatedCode.substring(0, maxPreviewLen) + '...' : obfuscatedCode;
+
+  await prisma.program.update({
+    where: { id: programId },
+    data: {
+      scriptEncrypted: encrypted,
+      scriptPreview: preview,
+      scriptSize: obfuscatedCode.length,
+    },
+  });
+
+  await prisma.operationLog.create({
+    data: {
+      userId: agentId,
+      action: 'reobfuscate_script',
+      target: 'program',
+      targetId: programId,
+      detail: JSON.stringify({ originalSize: plainScript.length, obfuscatedSize: obfuscatedCode.length }),
+    },
+  });
+
+  return {
+    code: 0,
+    message: `重新混淆成功 (${plainScript.length.toLocaleString()} → ${obfuscatedCode.length.toLocaleString()} 字符)`,
+    data: {
+      scriptSize: obfuscatedCode.length,
+      originalSize: plainScript.length,
+      obfuscatedSize: obfuscatedCode.length,
+      scriptPreview: preview,
+    },
+  };
+}
+
 // ==================== JS 混淆 ====================
 let obfuscator: any = null;
 function getObfuscator() {

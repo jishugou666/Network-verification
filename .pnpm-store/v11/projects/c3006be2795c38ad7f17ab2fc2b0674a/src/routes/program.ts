@@ -184,6 +184,21 @@ router.delete('/:id/script', async (req: Request, res: Response) => {
   }
 });
 
+// 重新混淆已保存脚本
+router.post('/:id/reobfuscate', async (req: Request, res: Response) => {
+  try {
+    const result = await programService.reobfuscateProgramScript(req.ctx!.userId, req.ctx!.role, req.params.id);
+    if (result.code === 0) {
+      success(res, result.data, result.message);
+    } else {
+      fail(res, result.code, result.message, result.code === 404 ? 404 : 400);
+    }
+  } catch (e: any) {
+    console.error('[POST /:id/reobfuscate]', e.message);
+    serverError(res);
+  }
+});
+
 // 混淆脚本代码
 router.post('/obfuscate', async (req: Request, res: Response) => {
   try {

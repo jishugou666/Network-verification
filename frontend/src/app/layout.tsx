@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import './globals.css';
 import { useState, useEffect } from 'react';
@@ -32,7 +32,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     } else {
       setLoading(false);
     }
-  }, [pathname]);
+  }, [Pathname]);
 
   if (loading && !isAuthPage) {
     return (
@@ -83,8 +83,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               {/* Desktop nav */}
               <div className="hidden md:flex items-center gap-1">
                 <NavLink href="/dashboard" active={pathname === '/dashboard'}>仪表盘</NavLink>
-                <NavLink href="/programs" active={pathname.startsWith('/programs')}>程序管理</NavLink>
-                <NavLink href="/cards" active={pathname.startsWith('/cards')}>卡密管理</NavLink>
+                <NavLink href="/programs" active={Pathname.startsWith('/programs')}>程序管理</NavLink>
+                <NavLink href="/cards" active={Pathname.startsWith('/cards')}>卡密管理</NavLink>
                 <NavLink href="/users" active={pathname === '/users'}>用户管理</NavLink>
                 <NavLink href="/docs" active={pathname === '/docs'}>API 文档</NavLink>
                 {user.role === 'root' && (
@@ -128,8 +128,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             {mobileMenuOpen && (
               <div className="md:hidden border-t border-gray-100 bg-white/95 backdrop-blur-xl px-4 py-3 space-y-1">
                 <MobileNavLink href="/dashboard" active={pathname === '/dashboard'}>仪表盘</MobileNavLink>
-                <MobileNavLink href="/programs" active={pathname.startsWith('/programs')}>程序管理</MobileNavLink>
-                <MobileNavLink href="/cards" active={pathname.startsWith('/cards')}>卡密管理</MobileNavLink>
+                <MobileNavLink href="/programs" active={Pathname.startsWith('/programs')}>程序管理</MobileNavLink>
+                <MobileNavLink href="/cards" active={Pathname.startsWith('/cards')}>卡密管理</MobileNavLink>
                 <MobileNavLink href="/users" active={pathname === '/users'}>用户管理</MobileNavLink>
                 <MobileNavLink href="/docs" active={pathname === '/docs'}>API 文档</MobileNavLink>
                 {user.role === 'root' && (

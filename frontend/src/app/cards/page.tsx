@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
@@ -73,9 +73,17 @@ export default function CardsPage() {
     else toast.error(res.message);
   };
 
-  const handleExport = async () => {
+    const handleExport = async () => {
     if (!filterProgramId) { toast.error('请先选择程序筛选'); return; }
-    window.open(`${process.env.NEXT_PUBLIC_API_URL}/cards/export/${filterProgramId}?format=txt`, '_blank');
+    try {
+      const res = await cardApi.export(filterProgramId);
+      if (res.code === 0 && res.data) {
+        navigator.clipboard.writeText(res.data.content || res.data.cards?.join('`n') || JSON.stringify(res.data));
+        toast.success('导出成功，已复制到剪贴板');
+      } else {
+        toast.error(res.message || '导出失败');
+      }
+    } catch { toast.error('导出失败'); }
   };
 
   const toggleSelect = (id: string) => {

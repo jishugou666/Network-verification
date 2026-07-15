@@ -2634,10 +2634,15 @@ export default function IntegrationPage() {
     if (!scriptEnabled) { toast.error('尚未保存脚本代码'); return; }
     setScriptSaving(true);
     try {
-      // 重新拉取对接信息获取保存的预览（实际是明文前256字符，但我们需要完整代码）
-      // 无法从预览恢复完整代码，只能提示用户重新粘贴
-      toast('已保存的脚本无法直接读取回编辑器（安全设计），请重新粘贴原始代码');
-    } catch { }
+      const res = await programApi.reobfuscate(id);
+      if (res.code === 0) {
+        toast.success(res.message);
+        setScriptSize(res.data!.scriptSize);
+        setScriptPreview(res.data!.scriptPreview || '');
+      } else {
+        toast.error(res.message);
+      }
+    } catch { toast.error('重新混淆失败'); }
     finally { setScriptSaving(false); }
   };
 
@@ -2781,13 +2786,22 @@ export default function IntegrationPage() {
             )}
           </div>
           <div className="flex items-center gap-2">
-            {scriptEnabled && (
-              <button
-                onClick={handleDisableScript}
-                className="px-3 py-1.5 text-xs font-medium text-red-600 bg-red-50 hover:bg-red-100 rounded-lg transition-colors"
-              >
-                禁用下发
-              </button>
+            {scriptEnabled (
+              <>
+                <button
+                  onClick={handleRebfuscateSaved}
+                  disabled={scriptSaving}
+                  className="px-3 py-1.5 text-xs font-medium text-purple-700 bg-purple-50 hover:bg-purple-100 border border-purple-200 rounded-lg transition-colors disabled:opacity-50"
+                >
+                  重新混淆
+                </button>
+                <button
+                  onClick={handleDisableScript}
+                  className="px-3 py-1.5 text-xs font-medium text-red-600 bg-red-50 hover:bg-red-100 rounded-lg transition-colors"
+                >
+                  禁用下发
+                </button>
+              </>
             )}
             <button
               onClick={handleObfuscateOnly}
