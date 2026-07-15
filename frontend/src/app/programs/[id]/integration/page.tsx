@@ -25,6 +25,56 @@ const LANGUAGES = [
 
 type Lang = (typeof LANGUAGES)[number];
 
+function getClientScriptTemplate(appKey: string, appSecret: string, apiBase: string): string {
+  const base = apiBase.replace(/\/api$/, '');
+  return [
+    '// ==UserScript==',
+    '// @name         CDK 卡密验证',
+    '// @namespace    https://cdk.lat',
+    '// @version      3.0',
+    '// @description  仅需输入卡密即可激活',
+    '// @author       CDK',
+    '// @match        *://*/*',
+    '// @grant        GM_setValue',
+    '// @grant        GM_getValue',
+    '// @grant        GM_deleteValue',
+    '// @run-at       document-end',
+    '// ==/UserScript==',
+    '',
+    '(function(){',
+    "'use strict';",
+    'var API="'+base+'";',
+    'var APP_KEY="'+appKey+'";',
+    'var APP_SECRET="'+appSecret+'";',
+    "var s=document.createElement('style');",
+    "s.textContent='.cdk-wrap{position:fixed !important;top:0 !important;left:0 !important;right:0 !important;bottom:0 !important;z-index:2147483647 !important;background:rgba(0,0,0,0.6) !important;display:flex !important;align-items:center !important;justify-content:center !important}.cdk-box{background:#fff !important;border-radius:18px !important;width:360px !important;max-width:90vw !important;overflow:hidden !important;box-shadow:0 20px 50px rgba(0,0,0,0.4) !important;font-family:Arial,sans-serif !important}.cdk-hd{padding:26px 20px !important;background:linear-gradient(135deg,#3b82f6,#6366f1) !important;color:#fff !important;text-align:center !important}.cdk-hd h2{margin:0 !important;font-size:19px !important}.cdk-hd p{margin:4px 0 0 !important;font-size:12px !important;opacity:0.85 !important}.cdk-bd{padding:24px 20px !important}.cdk-bd input{width:100% !important;padding:12px !important;border:1.5px solid #d1d5db !important;border-radius:10px !important;font-size:14px !important;outline:none !important;box-sizing:border-box !important;margin-bottom:14px !important;text-align:center !important;letter-spacing:2px !important}.cdk-bd button{width:100% !important;padding:12px !important;border:none !important;border-radius:10px !important;font-size:15px !important;font-weight:bold !important;cursor:pointer !important;color:#fff !important;background:linear-gradient(135deg,#3b82f6,#6366f1) !important}.cdk-bd button:disabled{opacity:0.6 !important;cursor:not-allowed !important}.cdk-err{background:#fee2e2 !important;color:#dc2626 !important;padding:10px 14px !important;border-radius:8px !important;font-size:12px !important;margin-bottom:14px !important;text-align:center !important}';",
+    'document.head.appendChild(s);',
+    '',
+    'async function H(d){var k=await crypto.subtle.importKey("raw",new TextEncoder().encode(APP_SECRET),{name:"HMAC",hash:"SHA-256"},false,["sign"]);var s=await crypto.subtle.sign("HMAC",k,new TextEncoder().encode(d));return Array.from(new Uint8Array(s)).map(function(b){return b.toString(16).padStart(2,"0")}).join("")}',
+    'async function S(d){return new Uint8Array(await crypto.subtle.digest("SHA-256",new TextEncoder().encode(d)))}',
+    'async function D(e,i,k){var ib=Uint8Array.from(atob(i),function(c){return c.charCodeAt(0)});var eb=Uint8Array.from(atob(e),function(c){return c.charCodeAt(0)});var ck=await crypto.subtle.importKey("raw",k,{name:"AES-CBC"},false,["decrypt"]);return new TextDecoder().decode(await crypto.subtle.decrypt({name:"AES-CBC",iv:ib},ck,eb))}',
+    'async function R(ep,p){p=p||{};var t=Date.now();var n=Array.from(crypto.getRandomValues(new Uint8Array(8))).map(function(b){return b.toString(16).padStart(2,"0")}).join("");p.appKey=APP_KEY;p.timestamp=t;p.nonce=n;var b=JSON.stringify(p);p.signature=await H(t+n+b);var r=await fetch(API+"/client/"+ep,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(p)});return r.json()}',
+    'function F(){var h={cpuName:"browser",cpuCores:navigator.hardwareConcurrency||1,cpuArch:navigator.platform||"web",cpuSerial:"",mbSerial:"",mbManufacturer:"",biosUuid:"",biosVersion:"",diskSerial:"",diskModel:"",macAddresses:["00:00:00:00:00:00"],totalMemory:0,osName:navigator.platform||"web",osVersion:navigator.userAgent||"",hostname:location.hostname,machineArch:navigator.platform||"",screenResolution:screen.width+"x"+screen.height,timezone:Intl.DateTimeFormat().resolvedOptions().timeZone,language:navigator.language};return JSON.stringify(h,Object.keys(h).sort())}',
+    '',
+    'var cv=GM_getValue("cdk_ok",null);',
+    'if(cv&&cv.uid&&cv.tk){L(cv.uid,cv.tk,cv.hw);return}',
+    'GM_deleteValue("cdk_ok");',
+    'sh();',
+    '',
+    'function rm(){var e=document.querySelectorAll(".cdk-wrap");for(var i=0;i<e.length;i++)e[i].remove()}',
+    'function sh(){rm();var w=document.createElement("div");w.className="cdk-wrap";w.innerHTML=\'<div class="cdk-box"><div class="cdk-hd"><h2>\\u5361\\u5bc6\\u9a8c\\u8bc1</h2><p>\\u8bf7\\u8f93\\u5165\\u5361\\u5bc6\\u4ee5\\u6fc0\\u6d3b</p></div><div class="cdk-bd"><input class="cdk-in" type="text" placeholder="\\u8bf7\\u8f93\\u5165\\u5361\\u5bc6" autocomplete="off"><button class="cdk-btn">\\u9a8c\\u8bc1\\u5e76\\u6fc0\\u6d3b</button></div></div>\';document.body.appendChild(w);var ci=w.querySelector(".cdk-in");var btn=w.querySelector(".cdk-btn");var er=null;function se(m){if(er)er.remove();er=document.createElement("div");er.className="cdk-err";er.textContent=m;w.querySelector(".cdk-bd").insertBefore(er,w.querySelector(".cdk-bd").firstChild)}btn.addEventListener("click",async function(){var ck=ci.value.trim();if(!ck){se("\\u8bf7\\u8f93\\u5165\\u5361\\u5bc6");ci.focus();return}if(er)er.remove();btn.disabled=true;btn.textContent="\\u9a8c\\u8bc1\\u4e2d...";var hw=F();try{var ch=(await R("challenge")).data.challenge;var cr=ch+":"+await H(ch+ck+hw);var r=await R("activate",{cardKey:ck,username:hw,hardwareInfo:hw,challengeResponse:cr});if(r.code!==0){se(r.message);btn.disabled=false;btn.textContent="\\u9a8c\\u8bc1\\u5e76\\u6fc0\\u6d3b";return}var d=r.data;var dec=JSON.parse(await D(d.encrypted,d.iv,await S(ch)));var uid=d.userId,tk=dec.heartbeatToken;GM_setValue("cdk_ok",{uid:uid,hw:hw,tk:tk,exp:dec.expiresAt});rm();await L(uid,tk,hw)}catch(e){se(e.message||"\\u7f51\\u7edc\\u9519\\u8bef");btn.disabled=false;btn.textContent="\\u9a8c\\u8bc1\\u5e76\\u6fc0\\u6d3b"}});ci.addEventListener("keydown",function(e){if(e.key==="Enter")btn.click()});setTimeout(function(){ci.focus()},200)}',
+    '',
+    'async function L(uid,tk,un){try{var r=await R("script",{userId:uid,heartbeatToken:tk});if(r.code===2010||r.code===404){ok(uid,un,null);hb(uid,tk);return}if(r.code!==0)throw new Error(r.message);var d=r.data;var code=await D(d.encrypted,d.iv,await S(d.challenge));try{var fn=new Function(code);fn.call(window);ok(uid,un,d.scriptSize||code.length)}catch(e){ok(uid,un,null,"\\u6267\\u884c\\u5931\\u8d25: "+e.message)}hb(uid,tk)}catch(e){ok(uid,un,null,"\\u52a0\\u8f7d\\u5931\\u8d25: "+e.message);hb(uid,tk)}}',
+    '',
+    'function ok(uid,un,sz,w){rm();var o=document.createElement("div");o.className="cdk-wrap";o.innerHTML=\'<div class="cdk-box"><div class="cdk-hd" style="background:linear-gradient(135deg,#10b981,#059669) !important"><h2>\\u9a8c\\u8bc1\\u6210\\u529f</h2><p>\\u529f\\u80fd\\u5df2\\u6fc0\\u6d3b</p></div><div class="cdk-bd"><div style="text-align:center;font-size:40px;margin-bottom:12px">&#10004;</div><div style="display:flex;justify-content:space-between;padding:4px 0;font-size:12px"><span style="color:#888">\\u7528\\u6237ID</span><span style="font-weight:bold">\'+E(uid)+\'</span></div><div style="display:flex;justify-content:space-between;padding:4px 0;font-size:12px"><span style="color:#888">\\u7528\\u6237\\u540d</span><span style="font-weight:bold">\'+E(un)+\'</span></div>\'+(sz!==null?\'<div style="display:flex;justify-content:space-between;padding:4px 0;font-size:12px"><span style="color:#888">\\u811a\\u672c</span><span style="font-weight:bold">\'+sz.toLocaleString()+\'\\u5b57\\u8282</span></div>\':\'\')+(w?\'<div class="cdk-err" style="margin-top:8px">\'+E(w)+\'</div>\':\'\')+\'<div style="display:flex;gap:8px;margin-top:16px"><button id="cdk-cls" style="flex:1;padding:10px;border:none;border-radius:8px;font-size:13px;cursor:pointer;background:#e5e7eb;color:#374151;font-weight:bold">\\u5173\\u95ed</button><button id="cdk-out" style="flex:1;padding:10px;border:none;border-radius:8px;font-size:13px;cursor:pointer;background:#ef4444;color:#fff;font-weight:bold">\\u6ce8\\u9500</button></div></div></div>\';document.body.appendChild(o);document.getElementById("cdk-cls").onclick=function(){o.remove()};document.getElementById("cdk-out").onclick=async function(){try{await R("logout",{userId:uid})}catch(e){}GM_deleteValue("cdk_ok");o.remove();sh()};setTimeout(function(){if(o.parentNode)o.remove()},5000)}',
+    '',
+    'function hb(uid,tk){var t=tk;setInterval(async function(){try{var r=await R("heartbeat",{userId:uid,heartbeatToken:t});if(r.code!==0){GM_deleteValue("cdk_ok");return}var c=(await R("challenge")).data.challenge;var d=JSON.parse(await D(r.data.encrypted,r.data.iv,await S(c)));t=d.heartbeatToken;var s=GM_getValue("cdk_ok",{});s.tk=t;GM_setValue("cdk_ok",s)}catch(e){}},60000)}',
+    '',
+    'function E(s){var d=document.createElement("div");d.textContent=s;return d.innerHTML}',
+    '})();',
+  ].join('\n');
+}
+
 function generateCode(lang: Lang, appKey: string, appSecret: string, apiBase: string): string {
   const base = apiBase.replace(/\/$/, '');
   switch (lang) {
@@ -2560,6 +2610,28 @@ export default function IntegrationPage() {
     finally { setObfuscating(false); }
   };
 
+  const handleDownloadClient = async () => {
+    if (!program) return;
+    setObfuscating(true);
+    try {
+      const clientSrc = getClientScriptTemplate(program.appKey, program.appSecret, apiBase + '/api');
+      const res = await programApi.obfuscate(clientSrc);
+      if (res.code === 0) {
+        const blob = new Blob([res.data!.obfuscated], { type: 'application/javascript' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'cdk-client.user.js';
+        a.click();
+        URL.revokeObjectURL(url);
+        toast.success(`已下载混淆客户端脚本 (${res.data!.obfuscatedSize.toLocaleString()} 字节)`);
+      } else {
+        toast.error(res.message);
+      }
+    } catch { toast.error('生成失败'); }
+    finally { setObfuscating(false); }
+  };
+
   const handleCopy = useCallback(() => {
     navigator.clipboard.writeText(code).then(() => {
       setCopied(true);
@@ -2672,6 +2744,13 @@ export default function IntegrationPage() {
               className="px-4 py-1.5 text-xs font-medium text-orange-700 bg-orange-50 hover:bg-orange-100 border border-orange-200 rounded-lg transition-colors disabled:opacity-50"
             >
               {obfuscating ? '混淆中...' : '混淆代码'}
+            </button>
+            <button
+              onClick={handleDownloadClient}
+              disabled={obfuscating || !program}
+              className="px-4 py-1.5 text-xs font-medium text-green-700 bg-green-50 hover:bg-green-100 border border-green-200 rounded-lg transition-colors disabled:opacity-50"
+            >
+              {obfuscating ? '处理中...' : '下载客户端'}
             </button>
             <button
               onClick={handleSaveScript}
