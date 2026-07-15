@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, Children, isValidElement } from 'react';
 
 export default function DocsPage() {
   return (
@@ -586,8 +586,8 @@ function FlowStep({ num, title, desc }: { num: number; title: string; desc: stri
 
 function Tabs({ tabs, children }: { tabs: { id: string; label: string }[]; children: React.ReactNode }) {
   const [active, setActive] = useState(tabs[0]?.id || '');
-  const activeTab = React.Children.toArray(children).find(
-    child => React.isValidElement(child) && child.props.id === active
+  const activeTab = Children.toArray(children).find(
+    child => isValidElement(child) && child.props.id === active
   );
   return (
     <div>
