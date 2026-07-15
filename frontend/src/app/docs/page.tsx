@@ -5,13 +5,11 @@ import { useState } from 'react';
 export default function DocsPage() {
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div>
         <h1 className="text-2xl font-bold text-gray-900">API 对接文档</h1>
         <p className="text-sm text-gray-500 mt-1">完整的客户端验证 API 接口规范，涵盖签名机制、加密方案和所有端点。</p>
       </div>
 
-      {/* 快速导航 */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
         <h2 className="text-sm font-semibold text-gray-800 mb-3">目录</h2>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-sm">
@@ -36,7 +34,6 @@ export default function DocsPage() {
         </div>
       </div>
 
-      {/* ==================== 鉴权机制 ==================== */}
       <Section id="auth" title="1. 鉴权机制">
         <p>所有客户端 API 请求（<code>/api/client/*</code>）均需要携带以下签名参数：</p>
         <table className="w-full text-sm mt-3">
@@ -57,58 +54,26 @@ export default function DocsPage() {
         </table>
       </Section>
 
-      {/* ==================== 签名算法 ==================== */}
       <Section id="signature" title="2. 签名算法">
-        <div className="bg-gray-900 text-gray-100 rounded-xl p-4 overflow-x-auto">
-          <pre className="text-xs leading-relaxed font-mono">{`签名原文 = timestamp + nonce + 请求体JSON（排除signature字段）
-
-signature = HMAC-SHA256(签名原文, appSecret)
-
-// 伪代码示例
-const ts = Date.now();
-const nonce = crypto.randomBytes(8).toString('hex');
-const body = JSON.stringify({ appKey, cardKey, username, ... });
-const signData = ts + nonce + body;
-const signature = crypto.createHmac('sha256', appSecret).update(signData).digest('hex');
-
-// 请求体最终包含 signature 字段
-const requestBody = { appKey, cardKey, username, timestamp: ts, nonce, signature };</pre>
-        </div>
+        <CodeBlock code={SIGNATURE_CODE} />
         <div className="mt-3 p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-800">
           <strong>注意：</strong>签名原文使用的是<strong>未包含 signature 字段</strong>的请求体 JSON。生成签名后，再将 signature 追加到请求体中发送。
         </div>
       </Section>
 
-      {/* ==================== 加密方案 ==================== */}
       <Section id="encryption" title="3. 加密方案">
         <h4 className="text-sm font-semibold text-gray-800 mt-4">3.1 AppSecret 存储</h4>
         <p>AppSecret 在服务端使用 <strong>AES-256-GCM</strong> 加密存储，确保数据库泄露后密钥不会明文暴露。</p>
 
         <h4 className="text-sm font-semibold text-gray-800 mt-4">3.2 响应数据加密</h4>
         <p>激活和心跳接口的敏感响应数据（如 heartbeatToken）使用 <strong>AES-256-CBC</strong> 加密：</p>
-        <div className="bg-gray-900 text-gray-100 rounded-xl p-4 mt-2 overflow-x-auto">
-          <pre className="text-xs leading-relaxed font-mono">{`// 加密密钥由 challenge 派生
-key = SHA-256(challenge)  // 32 字节
-iv  = base64(response.iv)  // 16 字节
-encrypted = base64(response.encrypted)
-
-// AES-256-CBC 解密
-plaintext = AES-256-CBC-Decrypt(encrypted, key, iv)
-// plaintext 为 JSON 字符串，包含 heartbeatToken 等敏感字段</pre>
-        </div>
+        <CodeBlock code={ENCRYPTION_CODE} />
 
         <h4 className="text-sm font-semibold text-gray-800 mt-4">3.3 Challenge-Response 防重放</h4>
         <p>激活时客户端需提交 challengeResponse 证明其持有正确的 AppSecret：</p>
-        <div className="bg-gray-900 text-gray-100 rounded-xl p-4 mt-2 overflow-x-auto">
-          <pre className="text-xs leading-relaxed font-mono">{`// 获取 challenge
-challenge = GET /api/client/challenge → { challenge: "a1b2c3..." }
-
-// 生成 challengeResponse
-challengeResponse = challenge + ":" + HMAC-SHA256(challenge + cardKey + username, appSecret)</pre>
-        </div>
+        <CodeBlock code={CHALLENGE_RESPONSE_CODE} />
       </Section>
 
-      {/* ==================== 端点文档 ==================== */}
       <Section id="challenge" title="4. 获取挑战">
         <EndpointBadge method="POST" path="/api/client/challenge" />
         <p className="mt-2">获取一个随机 128 位挑战字符串，用于后续激活操作。</p>
@@ -125,16 +90,9 @@ challengeResponse = challenge + ":" + HMAC-SHA256(challenge + cardKey + username
         </table>
 
         <h4 className="text-sm font-semibold text-gray-800 mt-4">成功响应</h4>
-        <CodeBlock>{`{
-  "code": 0,
-  "message": "ok",
-  "data": {
-    "challenge": "a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6"
-  }
-}`}</CodeBlock>
+        <CodeBlock code={CHALLENGE_RESP} />
       </Section>
 
-      {/* ==================== 卡密激活 ==================== */}
       <Section id="activate" title="5. 卡密激活">
         <EndpointBadge method="POST" path="/api/client/activate" />
         <p className="mt-2">验证卡密并绑定终端用户，激活成功后返回加密的 heartbeatToken。</p>
@@ -155,25 +113,7 @@ challengeResponse = challenge + ":" + HMAC-SHA256(challenge + cardKey + username
         </table>
 
         <h4 className="text-sm font-semibold text-gray-800 mt-4">成功响应</h4>
-        <CodeBlock>{`{
-  "code": 0,
-  "message": "激活成功",
-  "data": {
-    "userId": "uuid-xxx",
-    "encrypted": "base64密文...",
-    "iv": "base64初始向量..."
-  }
-}
-
-// 解密 encrypted 后得到：
-{
-  "userId": "uuid-xxx",
-  "username": "player_123",
-  "heartbeatToken": "uuid-token",
-  "expiresAt": "2026-08-15T00:00:00.000Z",
-  "maxDevices": 3,
-  "deviceCount": 1
-}`}</CodeBlock>
+        <CodeBlock code={ACTIVATE_RESP} />
 
         <h4 className="text-sm font-semibold text-gray-800 mt-4">可能错误</h4>
         <table className="w-full text-sm mt-2">
@@ -189,7 +129,6 @@ challengeResponse = challenge + ":" + HMAC-SHA256(challenge + cardKey + username
         </table>
       </Section>
 
-      {/* ==================== 心跳验证 ==================== */}
       <Section id="heartbeat" title="6. 心跳验证">
         <EndpointBadge method="POST" path="/api/client/heartbeat" />
         <p className="mt-2">验证用户在线状态，使用一次性 Token 防重放。每次心跳返回新的 heartbeatToken。</p>
@@ -212,26 +151,9 @@ challengeResponse = challenge + ":" + HMAC-SHA256(challenge + cardKey + username
         </div>
 
         <h4 className="text-sm font-semibold text-gray-800 mt-4">成功响应</h4>
-        <CodeBlock>{`{
-  "code": 0,
-  "message": "心跳验证成功",
-  "data": {
-    "userId": "uuid-xxx",
-    "encrypted": "base64密文...",
-    "iv": "base64初始向量..."
-  }
-}
-
-// 解密 encrypted 后得到：
-{
-  "userId": "uuid-xxx",
-  "heartbeatToken": "new-uuid-token",
-  "expiresAt": "2026-08-15T00:00:00.000Z",
-  "serverTime": "2026-07-15T12:00:00.000Z"
-}`}</CodeBlock>
+        <CodeBlock code={HEARTBEAT_RESP} />
       </Section>
 
-      {/* ==================== 登出 ==================== */}
       <Section id="logout" title="7. 登出">
         <EndpointBadge method="POST" path="/api/client/logout" />
         <p className="mt-2">注销用户，失效所有未使用的 heartbeatToken。</p>
@@ -249,24 +171,14 @@ challengeResponse = challenge + ":" + HMAC-SHA256(challenge + cardKey + username
         </table>
 
         <h4 className="text-sm font-semibold text-gray-800 mt-4">成功响应</h4>
-        <CodeBlock>{`{
-  "code": 0,
-  "message": "登出成功",
-  "data": null
-}`}</CodeBlock>
+        <CodeBlock code={LOGOUT_RESP} />
       </Section>
 
-      {/* ==================== 统一响应格式 ==================== */}
       <Section id="response-format" title="8. 统一响应格式">
         <p>所有接口遵循统一的 JSON 响应格式：</p>
-        <CodeBlock>{`{
-  "code": 0,       // 0 = 成功，非 0 = 错误
-  "message": "",   // 人类可读的消息
-  "data": null     // 响应数据，错误时为 null
-}`}</CodeBlock>
+        <CodeBlock code={RESPONSE_FORMAT} />
       </Section>
 
-      {/* ==================== 错误码 ==================== */}
       <Section id="errors" title="9. 错误码参考">
         <table className="w-full text-sm">
           <thead>
@@ -298,7 +210,6 @@ challengeResponse = challenge + ":" + HMAC-SHA256(challenge + cardKey + username
         </table>
       </Section>
 
-      {/* ==================== 硬件采集 ==================== */}
       <Section id="hardware" title="10. 硬件信息采集指南">
         <p>硬件信息用于生成设备指纹（服务端 SHA-256 哈希），需采集以下字段并序列化为 JSON 字符串：</p>
         <table className="w-full text-sm mt-3">
@@ -321,202 +232,309 @@ challengeResponse = challenge + ":" + HMAC-SHA256(challenge + cardKey + username
             <tr><td className="px-4 py-2 font-mono text-xs">hostname</td><td className="px-4 py-2 text-gray-500">string</td><td className="px-4 py-2 text-gray-600">主机名</td><td className="px-4 py-2 text-xs text-gray-500">socket.gethostname()</td></tr>
           </tbody>
         </table>
-        <p className="mt-3 text-xs text-gray-500">服务端会对硬件信息 JSON 做规范化（按 key 排序 → SHA-256），因此字段名和结构必须保持一致。</p>
+        <p className="mt-3 text-xs text-gray-500">服务端会对硬件信息 JSON 做规范化（按 key 排序 + SHA-256），因此字段名和结构必须保持一致。</p>
       </Section>
 
-      {/* ==================== 完整调用流程 ==================== */}
       <Section id="flow" title="11. 完整调用流程">
         <div className="space-y-3 text-sm">
-          <FlowStep num={1} title="获取挑战" desc="POST /api/client/challenge → 获得 128 位随机 challenge" />
-          <FlowStep num={2} title="激活卡密" desc="POST /api/client/activate → 提交 cardKey + username + hardwareInfo + challengeResponse → 获得 userId + encrypted(heartbeatToken)" />
-          <FlowStep num={3} title="心跳循环" desc="POST /api/client/heartbeat → 每 60 秒发送一次，使用上次返回的 heartbeatToken → 获得新的 heartbeatToken" />
-          <FlowStep num={4} title="登出" desc="POST /api/client/logout → 失效所有 heartbeatToken，结束会话" />
+          <FlowStep num={1} title="获取挑战" desc="POST /api/client/challenge + 获得 128 位随机 challenge" />
+          <FlowStep num={2} title="激活卡密" desc="POST /api/client/activate + 提交 cardKey + username + hardwareInfo + challengeResponse + 获得 userId + encrypted(heartbeatToken)" />
+          <FlowStep num={3} title="心跳循环" desc="POST /api/client/heartbeat + 每 60 秒发送一次，使用上次返回的 heartbeatToken + 获得新的 heartbeatToken" />
+          <FlowStep num={4} title="登出" desc="POST /api/client/logout + 失效所有 heartbeatToken，结束会话" />
         </div>
         <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-xl text-xs text-blue-800">
           <strong>建议：</strong>心跳间隔设置为 60 秒，程序的 heartbeatTimeout 建议设置为 120 秒（2 分钟），这样即使一次心跳失败也有重试窗口。
         </div>
       </Section>
 
-      {/* ==================== 代码示例 ==================== */}
       <Section id="examples" title="12. 代码示例">
-        <Tabs
-          tabs={[
-            { id: 'python', label: 'Python' },
-            { id: 'csharp', label: 'C# (.NET)' },
-            { id: 'node', label: 'Node.js' },
-          ]}
-        >
-          <TabContent id="python">
-            <CodeBlock>{`import hashlib, hmac, json, os, time, requests
-from Crypto.Cipher import AES
-from Crypto.Util.Padding import unpad
-from base64 import b64decode
-
-API_BASE = "https://your-backend.onrender.com/api"
-APP_KEY = "your_app_key"
-APP_SECRET = "your_app_secret"
-
-def hmac_sign(data: str) -> str:
-    return hmac.new(APP_SECRET.encode(), data.encode(), hashlib.sha256).hexdigest()
-
-def send(ep: str, payload: dict) -> dict:
-    ts = int(time.time() * 1000)
-    nonce = os.urandom(8).hex()
-    payload.update(appKey=APP_KEY, timestamp=ts, nonce=nonce)
-    body = json.dumps(payload, separators=(",", ":"))
-    payload["signature"] = hmac_sign(f"{ts}{nonce}{body}")
-    r = requests.post(f"{API_BASE}/client/{ep}", json=payload, timeout=30)
-    return r.json()
-
-def decrypt(enc: str, iv: str, challenge: str) -> str:
-    key = hashlib.sha256(challenge.encode()).digest()
-    cipher = AES.new(key, AES.MODE_CBC, b64decode(iv))
-    return unpad(cipher.decrypt(b64decode(enc)), AES.block_size).decode()
-
-# 1. 获取挑战
-challenge = send("challenge", {})["data"]["challenge"]
-
-# 2. 激活卡密
-cr = challenge + ":" + hmac_sign(challenge + "YOUR_CARD_KEY" + "player_123")
-r = send("activate", {"cardKey": "YOUR_CARD_KEY", "username": "player_123", "hardwareInfo": "{}", "challengeResponse": cr})
-data = r["data"]
-user_id = data["userId"]
-decrypted = json.loads(decrypt(data["encrypted"], data["iv"], challenge))
-heartbeat_token = decrypted["heartbeatToken"]
-print(f"激活成功! userId={user_id}")
-
-# 3. 心跳循环
-while True:
-    time.sleep(60)
-    r = send("heartbeat", {"userId": user_id, "heartbeatToken": heartbeat_token})
-    if r["code"] != 0:
-        print(f"心跳失败: {r['message']}")
-        break
-    ch = send("challenge", {})["data"]["challenge"]
-    decrypted = json.loads(decrypt(r["data"]["encrypted"], r["data"]["iv"], ch))
-    heartbeat_token = decrypted["heartbeatToken"]
-    print(f"心跳成功")
-
-# 4. 登出
-send("logout", {"userId": user_id})`}</CodeBlock>
-          </TabContent>
-          <TabContent id="csharp">
-            <CodeBlock>{`using System.Security.Cryptography;
-using System.Text;
-using System.Text.Json;
-
-const string ApiBase = "https://your-backend.onrender.com/api";
-const string AppKey = "your_app_key";
-const string AppSecret = "your_app_secret";
-
-static string HmacSign(string data) {
-    using var hmac = new HMACSHA256(Encoding.UTF8.GetBytes(AppSecret));
-    return Convert.ToHexStringLower(hmac.ComputeHash(Encoding.UTF8.GetBytes(data)));
-}
-
-static async Task<JsonElement> Send(string ep, Dictionary<string, object> payload) {
-    using var http = new HttpClient();
-    var ts = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
-    var nonce = Convert.ToHexString(RandomNumberGenerator.GetBytes(8)).ToLower();
-    payload["appKey"] = AppKey; payload["timestamp"] = ts; payload["nonce"] = nonce;
-    var body = JsonSerializer.Serialize(payload);
-    payload["signature"] = HmacSign($"{ts}{nonce}{body}");
-    var content = new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json");
-    var resp = await http.PostAsync($"{ApiBase}/client/{ep}", content);
-    return JsonSerializer.Deserialize<JsonElement>(await resp.Content.ReadAsStringAsync());
-}
-
-// 1. 获取挑战
-var chResp = await Send("challenge", new());
-var challenge = chResp.GetProperty("data").GetProperty("challenge").GetString();
-
-// 2. 激活
-var cr = $"{challenge}:{HmacSign(challenge + "YOUR_CARD_KEY" + "player_123")}";
-var actResp = await Send("activate", new() {
-    ["cardKey"] = "YOUR_CARD_KEY", ["username"] = "player_123",
-    ["hardwareInfo"] = "{}", ["challengeResponse"] = cr
-});
-var data = actResp.GetProperty("data");
-var userId = data.GetProperty("userId").GetString();
-// 解密 encrypted（需要 AES-256-CBC + SHA-256 challenge 派生密钥）
-var heartbeatToken = "..."; // 从解密后的 JSON 中获取
-
-// 3. 心跳（每 60 秒）
-while (true) {
-    await Task.Delay(60000);
-    var hbResp = await Send("heartbeat", new() { ["userId"] = userId, ["heartbeatToken"] = heartbeatToken });
-    // 解密并更新 heartbeatToken
-}
-
-// 4. 登出
-await Send("logout", new() { ["userId"] = userId });`}</CodeBlock>
-          </TabContent>
-          <TabContent id="node">
-            <CodeBlock>{`const crypto = require('crypto');
-
-const API_BASE = 'https://your-backend.onrender.com/api';
-const APP_KEY = 'your_app_key';
-const APP_SECRET = 'your_app_secret';
-
-function hmacSign(data) {
-  return crypto.createHmac('sha256', APP_SECRET).update(data).digest('hex');
-}
-
-async function send(ep, payload = {}) {
-  const ts = Date.now();
-  const nonce = crypto.randomBytes(8).toString('hex');
-  payload.appKey = APP_KEY; payload.timestamp = ts; payload.nonce = nonce;
-  const body = JSON.stringify(payload);
-  payload.signature = hmacSign(ts + nonce + body);
-  const r = await fetch(API_BASE + '/client/' + ep, {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload)
-  });
-  return r.json();
-}
-
-function decrypt(enc, iv, challenge) {
-  const key = crypto.createHash('sha256').update(challenge).digest();
-  const decipher = crypto.createDecipheriv('aes-256-cbc', key, Buffer.from(iv, 'base64'));
-  return decipher.update(Buffer.from(enc, 'base64'), undefined, 'utf8') + decipher.final('utf8');
-}
-
-(async () => {
-  // 1. 获取挑战
-  const ch = (await send('challenge')).data.challenge;
-
-  // 2. 激活
-  const cr = ch + ':' + hmacSign(ch + 'YOUR_CARD_KEY' + 'player_123');
-  const r = await send('activate', { cardKey: 'YOUR_CARD_KEY', username: 'player_123', hardwareInfo: '{}', challengeResponse: cr });
-  const { userId, encrypted, iv } = r.data;
-  const dec = JSON.parse(decrypt(encrypted, iv, ch));
-  let hbToken = dec.heartbeatToken;
-  console.log('激活成功, userId:', userId);
-
-  // 3. 心跳循环
-  setInterval(async () => {
-    try {
-      const hb = await send('heartbeat', { userId, heartbeatToken: hbToken });
-      if (hb.code !== 0) { console.error('心跳失败:', hb.message); return; }
-      const ch2 = (await send('challenge')).data.challenge;
-      const dec2 = JSON.parse(decrypt(hb.data.encrypted, hb.data.iv, ch2));
-      hbToken = dec2.heartbeatToken;
-      console.log('心跳成功');
-    } catch (e) { console.error(e); }
-  }, 60000);
-
-  // 4. 登出（进程退出时）
-  process.on('SIGINT', async () => {
-    await send('logout', { userId });
-    process.exit();
-  });
-})();`}</CodeBlock>
-          </TabContent>
+        <Tabs tabs={[
+          { id: 'python', label: 'Python' },
+          { id: 'csharp', label: 'C# (.NET)' },
+          { id: 'node', label: 'Node.js' },
+        ]}>
+          <TabContent id="python"><CodeBlock code={PYTHON_EXAMPLE} /></TabContent>
+          <TabContent id="csharp"><CodeBlock code={CSHARP_EXAMPLE} /></TabContent>
+          <TabContent id="node"><CodeBlock code={NODE_EXAMPLE} /></TabContent>
         </Tabs>
       </Section>
     </div>
   );
 }
+
+// ===== 代码常量（避免 JSX 模板字面量解析问题） =====
+
+const SIGNATURE_CODE = [
+  "签名原文 = timestamp + nonce + 请求体JSON（排除signature字段）",
+  "",
+  "signature = HMAC-SHA256(签名原文, appSecret)",
+  "",
+  "// 伪代码示例",
+  "const ts = Date.now();",
+  "const nonce = crypto.randomBytes(8).toString('hex');",
+  "const body = JSON.stringify({ appKey, cardKey, username, ... });",
+  "const signData = ts + nonce + body;",
+  "const signature = crypto.createHmac('sha256', appSecret).update(signData).digest('hex');",
+  "",
+  "// 请求体最终包含 signature 字段",
+  "const requestBody = { appKey, cardKey, username, timestamp: ts, nonce, signature };",
+].join('\n');
+
+const ENCRYPTION_CODE = [
+  "// 加密密钥由 challenge 派生",
+  "key = SHA-256(challenge)  // 32 字节",
+  "iv  = base64(response.iv)  // 16 字节",
+  "encrypted = base64(response.encrypted)",
+  "",
+  "// AES-256-CBC 解密",
+  "plaintext = AES-256-CBC-Decrypt(encrypted, key, iv)",
+  "// plaintext 为 JSON 字符串，包含 heartbeatToken 等敏感字段",
+].join('\n');
+
+const CHALLENGE_RESPONSE_CODE = [
+  "// 获取 challenge",
+  'challenge = POST /api/client/challenge -> { "challenge": "a1b2c3..." }',
+  "",
+  "// 生成 challengeResponse",
+  'challengeResponse = challenge + ":" + HMAC-SHA256(challenge + cardKey + username, appSecret)',
+].join('\n');
+
+const CHALLENGE_RESP = [
+  "{",
+  '  "code": 0,',
+  '  "message": "ok",',
+  '  "data": {',
+  '    "challenge": "a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6"',
+  "  }",
+  "}",
+].join('\n');
+
+const ACTIVATE_RESP = [
+  "{",
+  '  "code": 0,',
+  '  "message": "激活成功",',
+  '  "data": {',
+  '    "userId": "uuid-xxx",',
+  '    "encrypted": "base64密文...",',
+  '    "iv": "base64初始向量..."',
+  "  }",
+  "}",
+  "",
+  "// 解密 encrypted 后得到：",
+  "{",
+  '  "userId": "uuid-xxx",',
+  '  "username": "player_123",',
+  '  "heartbeatToken": "uuid-token",',
+  '  "expiresAt": "2026-08-15T00:00:00.000Z",',
+  '  "maxDevices": 3,',
+  '  "deviceCount": 1',
+  "}",
+].join('\n');
+
+const HEARTBEAT_RESP = [
+  "{",
+  '  "code": 0,',
+  '  "message": "心跳验证成功",',
+  '  "data": {',
+  '    "userId": "uuid-xxx",',
+  '    "encrypted": "base64密文...",',
+  '    "iv": "base64初始向量..."',
+  "  }",
+  "}",
+  "",
+  "// 解密 encrypted 后得到：",
+  "{",
+  '  "userId": "uuid-xxx",',
+  '  "heartbeatToken": "new-uuid-token",',
+  '  "expiresAt": "2026-08-15T00:00:00.000Z",',
+  '  "serverTime": "2026-07-15T12:00:00.000Z"',
+  "}",
+].join('\n');
+
+const LOGOUT_RESP = [
+  "{",
+  '  "code": 0,',
+  '  "message": "登出成功",',
+  '  "data": null',
+  "}",
+].join('\n');
+
+const RESPONSE_FORMAT = [
+  "{",
+  '  "code": 0,       // 0 = 成功，非 0 = 错误',
+  '  "message": "",   // 人类可读的消息',
+  '  "data": null     // 响应数据，错误时为 null',
+  "}",
+].join('\n');
+
+const PYTHON_EXAMPLE = [
+  "import hashlib, hmac, json, os, time, requests",
+  "from Crypto.Cipher import AES",
+  "from Crypto.Util.Padding import unpad",
+  "from base64 import b64decode",
+  "",
+  'API_BASE = "https://your-backend.onrender.com/api"',
+  'APP_KEY = "your_app_key"',
+  'APP_SECRET = "your_app_secret"',
+  "",
+  "def hmac_sign(data: str) -> str:",
+  "    return hmac.new(APP_SECRET.encode(), data.encode(), hashlib.sha256).hexdigest()",
+  "",
+  "def send(ep: str, payload: dict) -> dict:",
+  "    ts = int(time.time() * 1000)",
+  "    nonce = os.urandom(8).hex()",
+  "    payload.update(appKey=APP_KEY, timestamp=ts, nonce=nonce)",
+  '    body = json.dumps(payload, separators=(",", ":"))',
+  '    payload["signature"] = hmac_sign(f"{ts}{nonce}{body}")',
+  '    r = requests.post(f"{API_BASE}/client/{ep}", json=payload, timeout=30)',
+  "    return r.json()",
+  "",
+  "def decrypt(enc: str, iv: str, challenge: str) -> str:",
+  "    key = hashlib.sha256(challenge.encode()).digest()",
+  "    cipher = AES.new(key, AES.MODE_CBC, b64decode(iv))",
+  "    return unpad(cipher.decrypt(b64decode(enc)), AES.block_size).decode()",
+  "",
+  "# 1. 获取挑战",
+  'challenge = send("challenge", {})["data"]["challenge"]',
+  "",
+  "# 2. 激活卡密",
+  'cr = challenge + ":" + hmac_sign(challenge + "YOUR_CARD_KEY" + "player_123")',
+  'r = send("activate", {"cardKey": "YOUR_CARD_KEY", "username": "player_123", "hardwareInfo": "{}", "challengeResponse": cr})',
+  'data = r["data"]',
+  'user_id = data["userId"]',
+  'decrypted = json.loads(decrypt(data["encrypted"], data["iv"], challenge))',
+  'heartbeat_token = decrypted["heartbeatToken"]',
+  'print(f"激活成功! userId={user_id}")',
+  "",
+  "# 3. 心跳循环",
+  "while True:",
+  "    time.sleep(60)",
+  '    r = send("heartbeat", {"userId": user_id, "heartbeatToken": heartbeat_token})',
+  '    if r["code"] != 0:',
+  "        print(f\"心跳失败: {r['message']}\")",
+  "        break",
+  '    ch = send("challenge", {})["data"]["challenge"]',
+  '    decrypted = json.loads(decrypt(r["data"]["encrypted"], r["data"]["iv"], ch))',
+  '    heartbeat_token = decrypted["heartbeatToken"]',
+  '    print("心跳成功")',
+  "",
+  "# 4. 登出",
+  'send("logout", {"userId": user_id})',
+].join('\n');
+
+const CSHARP_EXAMPLE = [
+  "using System.Security.Cryptography;",
+  "using System.Text;",
+  "using System.Text.Json;",
+  "",
+  'const string ApiBase = "https://your-backend.onrender.com/api";',
+  'const string AppKey = "your_app_key";',
+  'const string AppSecret = "your_app_secret";',
+  "",
+  "static string HmacSign(string data) {",
+  "    using var hmac = new HMACSHA256(Encoding.UTF8.GetBytes(AppSecret));",
+  "    return Convert.ToHexStringLower(hmac.ComputeHash(Encoding.UTF8.GetBytes(data)));",
+  "}",
+  "",
+  "static async Task<JsonElement> Send(string ep, Dictionary<string, object> payload) {",
+  "    using var http = new HttpClient();",
+  "    var ts = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();",
+  "    var nonce = Convert.ToHexString(RandomNumberGenerator.GetBytes(8)).ToLower();",
+  '    payload["appKey"] = AppKey; payload["timestamp"] = ts; payload["nonce"] = nonce;',
+  "    var body = JsonSerializer.Serialize(payload);",
+  '    payload["signature"] = HmacSign($"{ts}{nonce}{body}");',
+  '    var content = new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json");',
+  '    var resp = await http.PostAsync($"{ApiBase}/client/{ep}", content);',
+  "    return JsonSerializer.Deserialize<JsonElement>(await resp.Content.ReadAsStringAsync());",
+  "}",
+  "",
+  "# 1. 获取挑战",
+  'var chResp = await Send("challenge", new());',
+  'var challenge = chResp.GetProperty("data").GetProperty("challenge").GetString();',
+  "",
+  "# 2. 激活",
+  'var cr = $"{challenge}:{HmacSign(challenge + "YOUR_CARD_KEY" + "player_123")}";',
+  'var actResp = await Send("activate", new() {',
+  '    ["cardKey"] = "YOUR_CARD_KEY", ["username"] = "player_123",',
+  '    ["hardwareInfo"] = "{}", ["challengeResponse"] = cr',
+  "});",
+  'var data = actResp.GetProperty("data");',
+  'var userId = data.GetProperty("userId").GetString();',
+  "// 解密 encrypted（需要 AES-256-CBC + SHA-256 challenge 派生密钥）",
+  'var heartbeatToken = "..."; // 从解密后的 JSON 中获取',
+  "",
+  "# 3. 心跳（每 60 秒）",
+  "while (true) {",
+  "    await Task.Delay(60000);",
+  '    var hbResp = await Send("heartbeat", new() { ["userId"] = userId, ["heartbeatToken"] = heartbeatToken });',
+  "    // 解密并更新 heartbeatToken",
+  "}",
+  "",
+  "# 4. 登出",
+  'await Send("logout", new() { ["userId"] = userId });',
+].join('\n');
+
+const NODE_EXAMPLE = [
+  "const crypto = require('crypto');",
+  "",
+  "const API_BASE = 'https://your-backend.onrender.com/api';",
+  "const APP_KEY = 'your_app_key';",
+  "const APP_SECRET = 'your_app_secret';",
+  "",
+  "function hmacSign(data) {",
+  "  return crypto.createHmac('sha256', APP_SECRET).update(data).digest('hex');",
+  "}",
+  "",
+  "async function send(ep, payload = {}) {",
+  "  const ts = Date.now();",
+  "  const nonce = crypto.randomBytes(8).toString('hex');",
+  "  payload.appKey = APP_KEY; payload.timestamp = ts; payload.nonce = nonce;",
+  "  const body = JSON.stringify(payload);",
+  "  payload.signature = hmacSign(ts + nonce + body);",
+  "  const r = await fetch(API_BASE + '/client/' + ep, {",
+  "    method: 'POST', headers: { 'Content-Type': 'application/json' },",
+  "    body: JSON.stringify(payload)",
+  "  });",
+  "  return r.json();",
+  "}",
+  "",
+  "function decrypt(enc, iv, challenge) {",
+  "  const key = crypto.createHash('sha256').update(challenge).digest();",
+  "  const decipher = crypto.createDecipheriv('aes-256-cbc', key, Buffer.from(iv, 'base64'));",
+  "  return decipher.update(Buffer.from(enc, 'base64'), undefined, 'utf8') + decipher.final('utf8');",
+  "}",
+  "",
+  "(async () => {",
+  "  // 1. 获取挑战",
+  "  const ch = (await send('challenge')).data.challenge;",
+  "",
+  "  // 2. 激活",
+  "  const cr = ch + ':' + hmacSign(ch + 'YOUR_CARD_KEY' + 'player_123');",
+  "  const r = await send('activate', { cardKey: 'YOUR_CARD_KEY', username: 'player_123', hardwareInfo: '{}', challengeResponse: cr });",
+  "  const { userId, encrypted, iv } = r.data;",
+  "  const dec = JSON.parse(decrypt(encrypted, iv, ch));",
+  "  let hbToken = dec.heartbeatToken;",
+  "  console.log('激活成功, userId:', userId);",
+  "",
+  "  // 3. 心跳循环",
+  "  setInterval(async () => {",
+  "    try {",
+  "      const hb = await send('heartbeat', { userId, heartbeatToken: hbToken });",
+  "      if (hb.code !== 0) { console.error('心跳失败:', hb.message); return; }",
+  "      const ch2 = (await send('challenge')).data.challenge;",
+  "      const dec2 = JSON.parse(decrypt(hb.data.encrypted, hb.data.iv, ch2));",
+  "      hbToken = dec2.heartbeatToken;",
+  "      console.log('心跳成功');",
+  "    } catch (e) { console.error(e); }",
+  "  }, 60000);",
+  "",
+  "  // 4. 登出（进程退出时）",
+  "  process.on('SIGINT', async () => {",
+  "    await send('logout', { userId });",
+  "    process.exit();",
+  "  });",
+  "})();",
+].join('\n');
 
 // ===== 辅助组件 =====
 
@@ -544,10 +562,10 @@ function EndpointBadge({ method, path }: { method: string; path: string }) {
   );
 }
 
-function CodeBlock({ children }: { children: string }) {
+function CodeBlock({ code }: { code: string }) {
   return (
     <div className="bg-gray-900 text-gray-100 rounded-xl p-4 mt-2 overflow-x-auto">
-      <pre className="text-xs leading-relaxed font-mono whitespace-pre">{children}</pre>
+      <pre className="text-xs leading-relaxed font-mono whitespace-pre">{code}</pre>
     </div>
   );
 }
@@ -568,6 +586,9 @@ function FlowStep({ num, title, desc }: { num: number; title: string; desc: stri
 
 function Tabs({ tabs, children }: { tabs: { id: string; label: string }[]; children: React.ReactNode }) {
   const [active, setActive] = useState(tabs[0]?.id || '');
+  const activeTab = React.Children.toArray(children).find(
+    child => React.isValidElement(child) && child.props.id === active
+  );
   return (
     <div>
       <div className="flex gap-1 mb-4 border-b border-gray-100">
@@ -585,9 +606,7 @@ function Tabs({ tabs, children }: { tabs: { id: string; label: string }[]; child
           </button>
         ))}
       </div>
-      {Array.isArray(children)
-        ? children.find((c: any) => c.props.id === active)
-        : (children as any)?.props?.id === active ? children : null}
+      {activeTab || null}
     </div>
   );
 }
