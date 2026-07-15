@@ -375,13 +375,13 @@ export async function obfuscateScript(code: string) {
     const header = headerMatch ? headerMatch[1] : '';
     const body = headerMatch ? code.slice(headerMatch[0].length) : code;
 
-    // 客户端模板只用轻量混淆（变量名替换+字符串编码），确保执行可靠性
-    // 控制流打平/死代码注入/自我防卫会破坏 Promise 链和 Function 调用
+    // 客户端模板只用轻量混淆（字符串编码+代码压缩），确保执行可靠性
+    // 标识符重命名会破坏 Promise 链和全局 API 引用，禁用
     const result = JavaScriptObfuscator.obfuscate(body, {
       compact: true,
       controlFlowFlattening: false,
       numbersToExpressions: false,
-      simplify: true,
+      simplify: false,
       stringArray: true,
       stringArrayEncoding: ['base64'],
       stringArrayThreshold: 0.5,
@@ -391,7 +391,7 @@ export async function obfuscateScript(code: string) {
       selfDefending: false,
       renameGlobals: false,
       target: 'browser',
-      identifierNamesGenerator: 'hexadecimal',
+      identifierNamesGenerator: 'mangled',
       reservedNames: [
         'GM_setValue',
         'GM_getValue',
