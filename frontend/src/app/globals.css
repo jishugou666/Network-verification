@@ -186,21 +186,33 @@ body {
 
 /* ==================== Glass Modal ==================== */
 .glass-modal-overlay {
-  background: rgba(0, 0, 0, 0.18);
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 9999;
+  background: rgba(0, 0, 0, 0.35);
   backdrop-filter: blur(6px) saturate(120%);
   -webkit-backdrop-filter: blur(6px) saturate(120%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .glass-modal {
-  background: rgba(255, 255, 255, 0.78);
+  background: rgba(255, 255, 255, 0.95);
   backdrop-filter: blur(28px) saturate(200%);
   -webkit-backdrop-filter: blur(28px) saturate(200%);
   border: 1px solid rgba(255, 255, 255, 0.5);
   border-radius: 20px;
   box-shadow:
-    0 25px 60px rgba(0, 0, 0, 0.1),
+    0 25px 60px rgba(0, 0, 0, 0.12),
     0 8px 20px rgba(0, 0, 0, 0.06),
     inset 0 1px 0 rgba(255, 255, 255, 0.6);
+  max-width: 90vw;
+  max-height: 85vh;
+  overflow-y: auto;
 }
 
 /* ==================== Glass Table ==================== */

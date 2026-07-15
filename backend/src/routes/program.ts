@@ -156,4 +156,24 @@ router.delete('/:id/script', async (req: Request, res: Response) => {
   }
 });
 
+// 混淆脚本代码
+router.post('/obfuscate', async (req: Request, res: Response) => {
+  try {
+    const { code } = req.body;
+    if (!code || typeof code !== 'string' || !code.trim()) {
+      fail(res, ErrorCode.BAD_REQUEST, '代码不能为空');
+      return;
+    }
+    const result = await programService.obfuscateScript(code);
+    if (result.code === 0) {
+      success(res, result.data, result.message);
+    } else {
+      fail(res, result.code, result.message, 400);
+    }
+  } catch (e: any) {
+    console.error('[POST /api/programs/obfuscate]', e.message);
+    serverError(res);
+  }
+});
+
 export default router;

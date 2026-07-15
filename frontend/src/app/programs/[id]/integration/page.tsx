@@ -2458,6 +2458,7 @@ export default function IntegrationPage() {
   const [scriptEnabled, setScriptEnabled] = useState(false);
   const [scriptPreview, setScriptPreview] = useState('');
   const [scriptSize, setScriptSize] = useState(0);
+  const [obfuscating, setObfuscating] = useState(false);
 
   useEffect(() => {
     programApi.getIntegration(id).then(res => {
@@ -2542,6 +2543,21 @@ export default function IntegrationPage() {
         toast.error(res.message);
       }
     } catch { toast.error('操作失败'); }
+  };
+
+  const handleObfuscate = async () => {
+    if (!scriptCode.trim()) { toast.error('请先输入脚本代码'); return; }
+    setObfuscating(true);
+    try {
+      const res = await programApi.obfuscate(scriptCode);
+      if (res.code === 0) {
+        setScriptCode(res.data!.obfuscated);
+        toast.success(`混淆完成! ${res.data!.originalSize.toLocaleString()} → ${res.data!.obfuscatedSize.toLocaleString()} 字符`);
+      } else {
+        toast.error(res.message);
+      }
+    } catch { toast.error('混淆失败'); }
+    finally { setObfuscating(false); }
   };
 
   const handleCopy = useCallback(() => {
@@ -2650,6 +2666,13 @@ export default function IntegrationPage() {
                 禁用下发
               </button>
             )}
+            <button
+              onClick={handleObfuscate}
+              disabled={obfuscating}
+              className="px-4 py-1.5 text-xs font-medium text-orange-700 bg-orange-50 hover:bg-orange-100 border border-orange-200 rounded-lg transition-colors disabled:opacity-50"
+            >
+              {obfuscating ? '混淆中...' : '混淆代码'}
+            </button>
             <button
               onClick={handleSaveScript}
               disabled={scriptSaving}

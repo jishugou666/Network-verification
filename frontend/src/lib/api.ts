@@ -69,6 +69,7 @@ export const programApi = {
   getIntegration: (id: string) => api.get<any>(`/programs/${id}/integration`),
   saveScript: (id: string, scriptCode: string) => api.put<any>(`/programs/${id}/script`, { scriptCode }),
   disableScript: (id: string) => api.delete<any>(`/programs/${id}/script`),
+  obfuscate: (code: string) => api.post<any>('/programs/obfuscate', { code }),
 };
 
 // Cards

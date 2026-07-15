@@ -356,3 +356,47 @@ export async function disableProgramScript(agentId: string, role: string, progra
 
   return { code: 0, message: '脚本下发已禁用', data: null };
 }
+
+// ==================== JS 混淆 ====================
+let obfuscator: any = null;
+function getObfuscator() {
+  if (!obfuscator) {
+    obfuscator = require('javascript-obfuscator');
+  }
+  return obfuscator;
+}
+
+export async function obfuscateScript(code: string) {
+  try {
+    const JavaScriptObfuscator = getObfuscator();
+    const result = JavaScriptObfuscator.obfuscate(code, {
+      compact: true,
+      controlFlowFlattening: true,
+      controlFlowFlatteningThreshold: 0.75,
+      numbersToExpressions: true,
+      simplify: false,
+      stringArray: true,
+      stringArrayEncoding: ['rc4'],
+      stringArrayThreshold: 0.75,
+      deadCodeInjection: true,
+      deadCodeInjectionThreshold: 0.4,
+      debugProtection: true,
+      disableConsoleOutput: true,
+      selfDefending: true,
+      renameGlobals: false,
+      target: 'browser-no-eval',
+      identifierNamesGenerator: 'hexadecimal',
+    });
+    return {
+      code: 0,
+      message: '混淆成功',
+      data: {
+        obfuscated: result.getObfuscatedCode(),
+        originalSize: code.length,
+        obfuscatedSize: result.getObfuscatedCode().length,
+      },
+    };
+  } catch (e: any) {
+    return { code: 500, message: '混淆失败: ' + e.message, data: null };
+  }
+}
