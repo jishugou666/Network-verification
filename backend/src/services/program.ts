@@ -369,7 +369,13 @@ function getObfuscator() {
 export async function obfuscateScript(code: string) {
   try {
     const JavaScriptObfuscator = getObfuscator();
-    const result = JavaScriptObfuscator.obfuscate(code, {
+
+    // 提取 UserScript 头部元数据（必须明文保留）
+    const headerMatch = code.match(/^(\/\/ ==UserScript==[\s\S]*?\/\/ ==\/UserScript==\s*)/);
+    const header = headerMatch ? headerMatch[1] : '';
+    const body = headerMatch ? code.slice(headerMatch[0].length) : code;
+
+    const result = JavaScriptObfuscator.obfuscate(body, {
       compact: true,
       controlFlowFlattening: true,
       controlFlowFlatteningThreshold: 0.75,
@@ -386,14 +392,40 @@ export async function obfuscateScript(code: string) {
       renameGlobals: false,
       target: 'browser-no-eval',
       identifierNamesGenerator: 'hexadecimal',
+      reservedNames: [
+        'GM_setValue',
+        'GM_getValue',
+        'GM_deleteValue',
+        'GM_addStyle',
+        'GM_getResourceURL',
+        'GM_xmlhttpRequest',
+      ],
+      reservedStrings: [
+        'GM_setValue',
+        'GM_getValue',
+        'GM_deleteValue',
+        'GM_addStyle',
+        'cdk_ok',
+        'cdk-wrap',
+        'cdk-box',
+        'cdk-hd',
+        'cdk-bd',
+        'cdk-in',
+        'cdk-btn',
+        'cdk-err',
+        'cdk-cls',
+        'cdk-out',
+      ],
+      domainLock: [],
     });
+    const obfuscated = header + result.getObfuscatedCode();
     return {
       code: 0,
       message: '混淆成功',
       data: {
-        obfuscated: result.getObfuscatedCode(),
+        obfuscated,
         originalSize: code.length,
-        obfuscatedSize: result.getObfuscatedCode().length,
+        obfuscatedSize: obfuscated.length,
       },
     };
   } catch (e: any) {
