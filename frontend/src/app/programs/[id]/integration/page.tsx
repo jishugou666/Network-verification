@@ -2615,6 +2615,32 @@ export default function IntegrationPage() {
     finally { setScriptSaving(false); }
   };
 
+  const handleObfuscateOnly = async () => {
+    if (!scriptCode.trim()) { toast.error('请先输入脚本代码'); return; }
+    setScriptSaving(true);
+    try {
+      const res = await programApi.obfuscate(scriptCode);
+      if (res.code === 0) {
+        setScriptCode(res.data!.obfuscated);
+        toast.success(`已混淆 (${res.data!.originalSize.toLocaleString()} → ${res.data!.obfuscatedSize.toLocaleString()} 字符)`);
+      } else {
+        toast.error(res.message);
+      }
+    } catch { toast.error('混淆失败'); }
+    finally { setScriptSaving(false); }
+  };
+
+  const handleReObfuscateSaved = async () => {
+    if (!scriptEnabled) { toast.error('尚未保存脚本代码'); return; }
+    setScriptSaving(true);
+    try {
+      // 重新拉取对接信息获取保存的预览（实际是明文前256字符，但我们需要完整代码）
+      // 无法从预览恢复完整代码，只能提示用户重新粘贴
+      toast('已保存的脚本无法直接读取回编辑器（安全设计），请重新粘贴原始代码');
+    } catch { }
+    finally { setScriptSaving(false); }
+  };
+
   const handleDisableScript = async () => {
     try {
       const res = await programApi.disableScript(id);
@@ -2764,11 +2790,11 @@ export default function IntegrationPage() {
               </button>
             )}
             <button
-              onClick={handleDownloadClient}
-              disabled={!program}
-              className="px-4 py-1.5 text-xs font-medium text-green-700 bg-green-50 hover:bg-green-100 border border-green-200 rounded-lg transition-colors disabled:opacity-50"
+              onClick={handleObfuscateOnly}
+              disabled={scriptSaving || !scriptCode.trim()}
+              className="px-4 py-1.5 text-xs font-medium text-orange-700 bg-orange-50 hover:bg-orange-100 border border-orange-200 rounded-lg transition-colors disabled:opacity-50"
             >
-              下载客户端
+              仅混淆
             </button>
             <button
               onClick={handleSaveScript}
@@ -2819,13 +2845,22 @@ export default function IntegrationPage() {
             <h3 className="text-sm font-semibold text-gray-800">界面定制</h3>
             <p className="text-xs text-gray-400 mt-0.5">自定义验证弹窗外观，修改后下载客户端即可生效</p>
           </div>
-          <button
-            onClick={handleSaveUIConfig}
-            disabled={savingConfig}
-            className="px-4 py-2 text-xs font-medium text-white bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 rounded-lg shadow-sm transition-all disabled:opacity-50"
-          >
-            {savingConfig ? '保存中...' : '保存样式'}
-          </button>
+          <div className="flex items-center gap-2">
+             <button
+               onClick={handleSaveUIConfig}
+               disabled={savingConfig}
+               className="px-4 py-2 text-xs font-medium text-white bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 rounded-lg shadow-sm transition-all disabled:opacity-50"
+             >
+               {savingConfig ? '保存中...' : '保存样式'}
+             </button>
+             <button
+               onClick={handleDownloadClient}
+               disabled={!program}
+               className="px-4 py-2 text-xs font-medium text-white bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 rounded-lg shadow-sm transition-all disabled:opacity-50"
+             >
+               下载客户端
+             </button>
+           </div>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
