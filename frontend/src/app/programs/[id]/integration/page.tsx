@@ -2786,10 +2786,10 @@ export default function IntegrationPage() {
             )}
           </div>
           <div className="flex items-center gap-2">
-            {scriptEnabled (
+            {scriptEnabled && (
               <>
                 <button
-                  onClick={handleRebfuscateSaved}
+                  onClick={handleReObfuscateSaved}
                   disabled={scriptSaving}
                   className="px-3 py-1.5 text-xs font-medium text-purple-700 bg-purple-50 hover:bg-purple-100 border border-purple-200 rounded-lg transition-colors disabled:opacity-50"
                 >
