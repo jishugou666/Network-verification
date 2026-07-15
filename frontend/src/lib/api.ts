@@ -1,9 +1,11 @@
-﻿const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
 
 let authToken: string | null = null;
 
 if (typeof window !== 'undefined') {
   authToken = localStorage.getItem('token');
+}
+
 export function setToken(token: string | null) {
   authToken = token;
   if (typeof window !== 'undefined') {
@@ -13,13 +15,19 @@ export function setToken(token: string | null) {
       localStorage.removeItem('token');
     }
   }
+}
+
 export function getToken(): string | null {
   if (typeof window !== 'undefined') {
-    localStorage.getItem('token');
+    return localStorage.getItem('token');
   }
-  // SSR 时返回模块级变量（仅在客户端初始化时赋值）
-  authToken;
-async function request<T>(path: string, options: Request = {}): Promise<{ code: number; message: string; data: T | null }> {
+  return authToken;
+}
+
+async function request<T>(
+  path: string,
+  options: RequestInit = {}
+): Promise<{ code: number; message: string; data: T | null }> {
   const token = getToken();
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
@@ -29,31 +37,32 @@ async function request<T>(path: string, options: Request = {}): Promise<{ code: 
     headers['Authorization'] = `Bearer ${token}`;
   }
 
-  const res = await fetch(`${API_URL}${path}`, {
-    ...options,
-    headers,
-  });
+  const res = await fetch(`${API_URL}${path}`, { ...options, headers });
+  return res.json();
+}
 
-  const json = await res.json();
-  json;
 export const api = {
   get: <T>(path: string) => request<T>(path),
-  post: <T>(path: string, body?: any) => request<T>(path, { method: 'POST', body: JSON.stringify(body) }),
-  put: <T>(path: string, body?: any) => request<T>(path, { method: 'PUT', body: JSON.stringify(body) }),
+  post: <T>(path: string, body?: any) => request<T>(path, { method: 'POST', body: body ? JSON.stringify(body) : undefined }),
+  put: <T>(path: string, body?: any) => request<T>(path, { method: 'PUT', body: body ? JSON.stringify(body) : undefined }),
   delete: <T>(path: string) => request<T>(path, { method: 'DELETE' }),
 };
 
 // Auth
 export const authApi = {
-  login: (username: string, password: string) => api.post<{ token: string; user: any }>('/auth/login', { username, password }),
-  register: (username: string, password: string, email?: string) => api.post<{ token: string; user: any }>('/auth/register', { username, password, email }),
+  login: (username: string, password: string) =>
+    api.post<{ token: string; user: any }>('/auth/login', { username, password }),
+  register: (username: string, password: string, email?: string) =>
+    api.post<{ token: string; user: any }>('/auth/register', { username, password, email }),
   getMe: () => api.get<any>('/auth/me'),
-  changePassword: (oldPassword: string, newPassword: string) => api.put('/auth/password', { oldPassword, newPassword }),
+  changePassword: (oldPassword: string, newPassword: string) =>
+    api.put('/auth/password', { oldPassword, newPassword }),
 };
 
 // Programs
 export const programApi = {
-  list: (page = 1, pageSize = 20) => api.get<{ programs: any[]; total: number }>(`/programs?page=${page}&pageSize=${pageSize}`),
+  list: (page = 1, pageSize = 20) =>
+    api.get<{ programs: any[]; total: number }>(`/programs?page=${page}&pageSize=${pageSize}`),
   get: (id: string) => api.get<any>(`/programs/${id}`),
   create: (data: any) => api.post<any>('/programs', data),
   update: (id: string, data: any) => api.put<any>(`/programs/${id}`, data),
@@ -72,7 +81,7 @@ export const programApi = {
 export const cardApi = {
   list: (params: any = {}) => {
     const qs = new URLSearchParams(params).toString();
-    api.get<{ cards: any[]; total: number }>(`/cards?${qs}`);
+    return api.get<{ cards: any[]; total: number }>(`/cards?${qs}`);
   },
   generate: (data: any) => api.post<{ cards: string[] }>('/cards/generate', data),
   ban: (cardIds: string[], reason?: string) => api.post('/cards/ban', { cardIds, reason }),
@@ -81,14 +90,15 @@ export const cardApi = {
   resetDevice: (id: string) => api.post(`/cards/${id}/reset-device`),
   getDetail: (id: string) => api.get<any>(`/cards/${id}`),
   unbind: (id: string) => api.post<any>(`/cards/${id}/unbind`),
-  export: (programId: string, format: string = 'txt') => api.get<any>(`/cards/export/${programId}?format=${format}`),
+  export: (programId: string, format: string = 'txt') =>
+    api.get<any>(`/cards/export/${programId}?format=${format}`),
 };
 
 // Users
 export const userApi = {
   listEndUsers: (params: any = {}) => {
     const qs = new URLSearchParams(params).toString();
-    api.get<{ users: any[]; total: number }>(`/end-users?${qs}`);
+    return api.get<{ users: any[]; total: number }>(`/end-users?${qs}`);
   },
   getEndUser: (id: string) => api.get<any>(`/end-users/${id}`),
   banEndUser: (id: string, reason?: string) => api.post(`/end-users/${id}/ban`, { reason }),
@@ -96,7 +106,7 @@ export const userApi = {
   dashboard: () => api.get<any>('/dashboard'),
   listAgents: (params: any = {}) => {
     const qs = new URLSearchParams(params).toString();
-    api.get<{ agents: any[]; total: number }>(`/agents?${qs}`);
+    return api.get<{ agents: any[]; total: number }>(`/agents?${qs}`);
   },
   toggleAgentStatus: (id: string) => api.post(`/agents/${id}/toggle-status`),
 };

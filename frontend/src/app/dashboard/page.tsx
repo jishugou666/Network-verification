@@ -1,14 +1,11 @@
-﻿'use client';
+'use client';
 
 import { useState, useEffect } from 'react';
 import { userApi } from '@/lib/api';
-import type {Data } from '@/lib/types';
-
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-const _:Data = {} as any; from '@/lib/api';
+import type { DashboardData } from '@/lib/types';
 
 export default function DashboardPage() {
-  const [data, setData] = useState<Data>({});
+  const [data, setData] = useState<DashboardData>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -16,7 +13,7 @@ export default function DashboardPage() {
     userApi.dashboard()
       .then(res => {
         if (res.code === 0 && res.data) {
-          setData(res.data asData);
+          setData(res.data as DashboardData);
         } else {
           setError(res.message || '加载失败');
         }
@@ -26,15 +23,19 @@ export default function DashboardPage() {
   }, []);
 
   if (loading) {
-    return <div className="flex items-center justify-center py-20">
-      <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
-    </div>;
+    return (
+      <div className="flex items-center justify-center py-20">
+        <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
   }
 
   if (error) {
-    return <div className="flex items-center justify-center py-20">
-      <p className="text-red-500">{error}</p>
-    </div>;
+    return (
+      <div className="flex items-center justify-center py-20">
+        <p className="text-red-500">{error}</p>
+      </div>
+    );
   }
 
   const isRoot = data.totalAgents !== undefined;
@@ -65,7 +66,6 @@ export default function DashboardPage() {
         ))}
       </div>
 
-      {/* 柱状图 */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
         <h3 className="text-sm font-semibold text-gray-800 mb-4">数据分布</h3>
         <div className="flex items-end gap-6 h-40 px-4">
@@ -86,7 +86,6 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* 环形图 */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
         <h3 className="text-sm font-semibold text-gray-800 mb-4">占比分析</h3>
         <div className="space-y-3">

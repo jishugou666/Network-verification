@@ -32,7 +32,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     } else {
       setLoading(false);
     }
-  }, [Pathname]);
+  }, [pathname]);
 
   if (loading && !isAuthPage) {
     return (
