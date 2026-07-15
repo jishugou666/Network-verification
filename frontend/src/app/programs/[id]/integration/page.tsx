@@ -48,24 +48,16 @@ var K=["${appKey}"];var S=["${appSecret}"];var A="${base}";
 var css='.cdk-wrap{position:fixed!important;top:0!important;left:0!important;right:0!important;bottom:0!important;z-index:2147483647!important;background:rgba(0,0,0,0.6)!important;display:flex!important;align-items:center!important;justify-content:center!important}.cdk-box{background:#fff!important;border-radius:18px!important;width:360px!important;max-width:90vw!important;overflow:hidden!important;box-shadow:0 20px 50px rgba(0,0,0,0.4)!important;font-family:Arial,sans-serif!important}.cdk-hd{padding:26px 20px!important;background:linear-gradient(135deg,#3b82f6,#6366f1)!important;color:#fff!important;text-align:center!important}.cdk-hd h2{margin:0!important;font-size:19px!important}.cdk-hd p{margin:4px 0 0!important;font-size:12px!important;opacity:0.85!important}.cdk-bd{padding:24px 20px!important}.cdk-bd input{width:100%!important;padding:12px!important;border:1.5px solid #d1d5db!important;border-radius:10px!important;font-size:14px!important;outline:none!important;box-sizing:border-box!important;margin-bottom:14px!important;text-align:center!important}.cdk-bd button{width:100%!important;padding:12px!important;border:none!important;border-radius:10px!important;font-size:15px!important;font-weight:bold!important;cursor:pointer!important;color:#fff!important;background:linear-gradient(135deg,#3b82f6,#6366f1)!important}.cdk-bd button:disabled{opacity:0.6!important;cursor:not-allowed!important}.cdk-err{background:#fee2e2!important;color:#dc2626!important;padding:10px 14px!important;border-radius:8px!important;font-size:12px!important;margin-bottom:14px!important;text-align:center!important}';
 var d=document.createElement('style');d.textContent=css;document.head.appendChild(d);
 
-// 反调试检测
+// API Hook 检测（仅检测核心加密API，不做定时检测避免闪烁）
 var _safe=true;
 (function(){
-  var _ns=/function\\s+\\w+\\(\\)\\s*\\{\\s*\\[native code\\]\\s*\\}/;
-  try{if(!_ns.test(Function.prototype.toString.call(Function))||!Function.prototype.toString.toString().includes("[native code]"))_safe=false;}catch(e){_safe=false;}
-  try{if(!_ns.test(fetch.toString()))_safe=false;}catch(e){_safe=false;}
-  try{if(!_ns.test(crypto.subtle.importKey.toString()))_safe=false;}catch(e){_safe=false;}
-  try{if(!_ns.test(crypto.subtle.decrypt.toString()))_safe=false;}catch(e){_safe=false;}
-  try{if(typeof GM_setValue==="undefined")_safe=false;}catch(e){_safe=false;}
-  try{if(typeof GM_getValue==="undefined")_safe=false;}catch(e){_safe=false;}
+  try{if(!/function\\s+\\w+\\(\\)\\s*\\{\\s*\\[native code\\]\\s*\\}/.test(Function.prototype.toString.call(Function)))_safe=false;}catch(e){}
+  try{if(typeof crypto.subtle.importKey!=="function")_safe=false;}catch(e){}
+  try{if(typeof crypto.subtle.decrypt!=="function")_safe=false;}catch(e){}
+  try{if(typeof GM_setValue!=="function")_safe=false;}catch(e){}
+  try{if(typeof GM_getValue!=="function")_safe=false;}catch(e){}
 })();
 if(!_safe){GM_deleteValue("cdk_ok");location.reload();}
-
-// 控制台检测
-var _cs=0;var _ct=Date.now();
-setInterval(function(){_cs++;var _nd=Date.now();if(_cs>10&&(_nd-_ct)/_cs>150){GM_deleteValue("cdk_ok");location.reload();}if(_cs===10){_cs=0;_ct=_nd;}},50);
-// debugger陷阱
-setInterval(function(){try{(function(){}).constructor("debugger")();}catch(e){}},200);
 
 // 加密工具
 function H(d,k){return crypto.subtle.importKey("raw",new TextEncoder().encode(k),{name:"HMAC",hash:"SHA-256"},false,["sign"]).then(function(ky){return crypto.subtle.sign("HMAC",ky,new TextEncoder().encode(d));}).then(function(s){return Array.from(new Uint8Array(s)).map(function(b){return b.toString(16).padStart(2,"0");}).join("");});}
