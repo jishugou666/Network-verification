@@ -27,116 +27,74 @@ type Lang = (typeof LANGUAGES)[number];
 
 function getClientScriptTemplate(appKey: string, appSecret: string, apiBase: string): string {
   const base = apiBase.replace(/\/api$/, '');
-  return [
-    '// ==UserScript==',
-    '// @name         CDK 卡密验证',
-    '// @namespace    https://cdk.lat',
-    '// @version      4.0',
-    '// @description  安全卡密验证客户端（反调试 + 设备绑定 + 凭证加密）',
-    '// @author       CDK',
-    '// @match        *://*/*',
-    '// @grant        GM_setValue',
-    '// @grant        GM_getValue',
-    '// @grant        GM_deleteValue',
-    '// @run-at       document-end',
-    '// ==/UserScript==',
-    '',
-    '(function(){',
-    "'use strict';",
-    'var K=["'+appKey+'"];var S=["'+appSecret+'"];var A="'+base+'";',
-    "var css='.cdk-wrap{position:fixed!important;top:0!important;left:0!important;right:0!important;bottom:0!important;z-index:2147483647!important;background:rgba(0,0,0,0.6)!important;display:flex!important;align-items:center!important;justify-content:center!important}.cdk-box{background:#fff!important;border-radius:18px!important;width:360px!important;max-width:90vw!important;overflow:hidden!important;box-shadow:0 20px 50px rgba(0,0,0,0.4)!important;font-family:Arial,sans-serif!important}.cdk-hd{padding:26px 20px!important;background:linear-gradient(135deg,#3b82f6,#6366f1)!important;color:#fff!important;text-align:center!important}.cdk-hd h2{margin:0!important;font-size:19px!important}.cdk-hd p{margin:4px 0 0!important;font-size:12px!important;opacity:0.85!important}.cdk-bd{padding:24px 20px!important}.cdk-bd input{width:100%!important;padding:12px!important;border:1.5px solid #d1d5db!important;border-radius:10px!important;font-size:14px!important;outline:none!important;box-sizing:border-box!important;margin-bottom:14px!important;text-align:center!important}.cdk-bd button{width:100%!important;padding:12px!important;border:none!important;border-radius:10px!important;font-size:15px!important;font-weight:bold!important;cursor:pointer!important;color:#fff!important;background:linear-gradient(135deg,#3b82f6,#6366f1)!important}.cdk-bd button:disabled{opacity:0.6!important;cursor:not-allowed!important}.cdk-err{background:#fee2e2!important;color:#dc2626!important;padding:10px 14px!important;border-radius:8px!important;font-size:12px!important;margin-bottom:14px!important;text-align:center!important}';",
-    "var d=document.createElement('style');d.textContent=css;document.head.appendChild(d);",
-    '',
-    '// ===== 反调试检测 =====',
-    'var _safe=true;',
-    '(function(){',
-    '  var _fnStr=Function.prototype.toString;',
-    '  var _nativeCode=/function\\s+\\w+\\(\\)\\s*\\{\\s*\\[native code\\]\\s*\\}/;',
-    '  // 检测核心 API 是否被 Hook',
-    '  try{if(!_nativeCode.test(_fnStr.call(Function))||!Function.prototype.toString.toString().includes("[native code]"))_safe=false;}catch(e){_safe=false;}',
-    '  try{if(!_nativeCode.test(fetch.toString()))_safe=false;}catch(e){_safe=false;}',
-    '  try{if(!_nativeCode.test(crypto.subtle.importKey.toString()))_safe=false;}catch(e){_safe=false;}',
-    '  try{if(!_nativeCode.test(crypto.subtle.decrypt.toString()))_safe=false;}catch(e){_safe=false;}',
-    '  // 检测 GM_setValue 是否被替换',
-    '  try{if(typeof GM_setValue==="undefined")_safe=false;}catch(e){_safe=false;}',
-    '  try{if(typeof GM_getValue==="undefined")_safe=false;}catch(e){_safe=false;}',
-    '})();',
-    'if(!_safe){GM_deleteValue("cdk_ok");location.reload();return;}',
-    '',
-    '// ===== 控制台检测（定时） =====',
-    'var _cs=0;var _ct=Date.now();',
-    'setInterval(function(){',
-    '  _cs++;',
-    '  var _nd=Date.now();',
-    '  // 控制台打开会导致定时器变慢，检测异常时间差',
-    '  if(_cs>10&&(_nd-_ct)/_cs>150){GM_deleteValue("cdk_ok");location.reload();}',
-    '  if(_cs===10){_cs=0;_ct=_nd;}',
-    '},50);',
-    '',
-    '// ===== debugger 陷阱 =====',
-    'setInterval(function(){try{(function(){}).constructor("debugger")();}catch(e){}},200);',
-    '',
-    '// ===== 加密工具 =====',
-    'function H(d,k){return crypto.subtle.importKey("raw",new TextEncoder().encode(k),{name:"HMAC",hash:"SHA-256"},false,["sign"]).then(function(ky){return crypto.subtle.sign("HMAC",ky,new TextEncoder().encode(d));}).then(function(s){return Array.from(new Uint8Array(s)).map(function(b){return b.toString(16).padStart(2,"0");}).join("");});}',
-    'function SH(d){return crypto.subtle.digest("SHA-256",new TextEncoder().encode(d)).then(function(h){return new Uint8Array(h);});}',
-    'function DC(e,i,k){var ib=Uint8Array.from(atob(i),function(c){return c.charCodeAt(0);});var eb=Uint8Array.from(atob(e),function(c){return c.charCodeAt(0);});return crypto.subtle.importKey("raw",k,{name:"AES-CBC"},false,["decrypt"]).then(function(ck){return crypto.subtle.decrypt({name:"AES-CBC",iv:ib},ck,eb);}).then(function(d){return new TextDecoder().decode(d);});}',
-    'function R(ep,p){p=p||{};var t=Date.now();var n=Array.from(crypto.getRandomValues(new Uint8Array(8))).map(function(b){return b.toString(16).padStart(2,"0");}).join("");p.appKey=K[0];p.timestamp=t;p.nonce=n;var b=JSON.stringify(p);return H(t+n+b,S[0]).then(function(sig){p.signature=sig;return fetch(A+"/client/"+ep,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(p)});}).then(function(r){return r.json();});}',
-    'function F(){var h={cpuName:"browser",cpuCores:navigator.hardwareConcurrency||1,cpuArch:navigator.platform||"web",cpuSerial:"",mbSerial:"",mbManufacturer:"",biosUuid:"",biosVersion:"",diskSerial:"",diskModel:"",macAddresses:["00:00:00:00:00:00"],totalMemory:0,osName:navigator.platform||"web",osVersion:navigator.userAgent||"",hostname:location.hostname,machineArch:navigator.platform||"",screenResolution:screen.width+"x"+screen.height,timezone:Intl.DateTimeFormat().resolvedOptions().timeZone,language:navigator.language};return JSON.stringify(h,Object.keys(h).sort());}',
-    '',
-    '// ===== 凭证加密存储（绑定设备指纹） =====',
-    'function _encryptData(data,hw){var raw=JSON.stringify(data);return SH(hw).then(function(hk){',
-    '  var iv=crypto.getRandomValues(new Uint8Array(12));',
-    '  return crypto.subtle.importKey("raw",hk,{name:"AES-GCM"},false,["encrypt"]).then(function(k){',
-    '  return crypto.subtle.encrypt({name:"AES-GCM",iv:iv},k,new TextEncoder().encode(raw));',
-    '  }).then(function(enc){',
-    '    var buf=new Uint8Array(enc);',
-    '    var out=new Uint8Array(iv.length+buf.length);',
-    '    out.set(iv);out.set(buf,12);',
-    '    return btoa(Array.from(out).map(function(b){return String.fromCharCode(b);}).join(""));',
-    '  });',
-    '});}',
-    'function _decryptData(blob,hw){return SH(hw).then(function(hk){',
-    '  var raw=Uint8Array.from(atob(blob),function(c){return c.charCodeAt(0);});',
-    '  var iv=raw.slice(0,12);var ct=raw.slice(12);',
-    '  return crypto.subtle.importKey("raw",hk,{name:"AES-GCM"},false,["decrypt"]).then(function(k){',
-    '    return crypto.subtle.decrypt({name:"AES-GCM",iv:iv},k,ct);',
-    '  }).then(function(d){return JSON.parse(new TextDecoder().decode(d));});',
-    '});}',
-    '',
-    '// ===== 启动 =====',
-    'var _hw=F();',
-    'var _enc=GM_getValue("cdk_ok",null);',
-    'if(_enc&&typeof _enc==="string"){',
-    '  _decryptData(_enc,_hw).then(function(cv){',
-    '    if(cv&&cv.uid&&cv.tk){_load(cv.uid,cv.tk,cv.hw);}else{GM_deleteValue("cdk_ok");_show();}',
-    '  }).catch(function(){GM_deleteValue("cdk_ok");_show();});',
-    '}else{',
-    '  GM_deleteValue("cdk_ok");',
-    '  _show();',
-    '}',
-    '',
-    'function _show(){_rm();var w=document.createElement("div");w.className="cdk-wrap";w.innerHTML=\\'<div class="cdk-box"><div class="cdk-hd"><h2>\\u5361\\u5bc6\\u9a8c\\u8bc1</h2><p>\\u8bf7\\u8f93\\u5165\\u5361\\u5bc6\\u4ee5\\u6fc0\\u6d3b</p></div><div class="cdk-bd"><input class="cdk-in" type="text" placeholder="\\u8bf7\\u8f93\\u5165\\u5361\\u5bc6" autocomplete="off"><button class="cdk-btn">\\u9a8c\\u8bc1\\u5e76\\u6fc0\\u6d3b</button></div></div>\\';document.body.appendChild(w);var ci=w.querySelector(".cdk-in");var btn=w.querySelector(".cdk-btn");var er=null;function se(m){if(er)er.remove();er=document.createElement("div");er.className="cdk-err";er.textContent=m;w.querySelector(".cdk-bd").insertBefore(er,w.querySelector(".cdk-bd").firstChild);}btn.addEventListener("click",function(){var ck=ci.value.trim();if(!ck){se("\\u8bf7\\u8f93\\u5165\\u5361\\u5bc6");ci.focus();return;}if(er)er.remove();btn.disabled=true;btn.textContent="\\u9a8c\\u8bc1\\u4e2d...";var _ch="";R("challenge").then(function(cr){_ch=cr.data.challenge;return H(_ch+ck+_hw,S[0]).then(function(s){return R("activate",{cardKey:ck,username:_hw,hardwareInfo:_hw,challengeResponse:_ch+":"+s});});}).then(function(r){if(r.code!==0){se(r.message);btn.disabled=false;btn.textContent="\\u9a8c\\u8bc1\\u5e76\\u6fc0\\u6d3b";return;}var d=r.data;return SH(_ch).then(function(k){return DC(d.encrypted,d.iv,k);}).then(function(dec){var j=JSON.parse(dec);var uid=d.userId,tk=j.heartbeatToken;return _encryptData({uid:uid,hw:_hw,tk:tk,exp:j.expiresAt},_hw).then(function(enc){GM_setValue("cdk_ok",enc);_rm();return _load(uid,tk,_hw);});});}).catch(function(e){se(e.message||"\\u7f51\\u7edc\\u9519\\u8bef");btn.disabled=false;btn.textContent="\\u9a8c\\u8bc1\\u5e76\\u6fc0\\u6d3b";});});ci.addEventListener("keydown",function(e){if(e.key==="Enter")btn.click();});setTimeout(function(){ci.focus();},200);}',
-    '',
-    'function _load(uid,tk,hw){R("script",{userId:uid,heartbeatToken:tk}).then(function(r){',
-    '  if(r.code===2010||r.code===404){_ok(uid,hw,null);_hb(uid,tk,hw);return;}',
-    '  if(r.code!==0)throw new Error(r.message);',
-    '  var d=r.data;',
-    '  return DC(d.encrypted,d.iv,SH(d.challenge).then(function(k){return k;})).then(function(code){',
-    '    var cl=code.length;',
-    '    try{var fn=(function(){}).constructor(code);fn.call(window);fn=null;code=null;}catch(ee){_ok(uid,hw,null,"\\u6267\\u884c\\u5931\\u8d25: "+ee.message);return;}',
-    '    _ok(uid,hw,d.scriptSize||cl);',
-    '    _hb(uid,tk,hw);',
-    '  });',
-    '}).catch(function(e){_ok(uid,hw,null,"\\u52a0\\u8f7d\\u5931\\u8d25: "+e.message);_hb(uid,tk,hw);});}',
-    '',
-    'function _ok(uid,hw,sz,w){_rm();var o=document.createElement("div");o.className="cdk-wrap";o.innerHTML=\\'<div class="cdk-box"><div class="cdk-hd" style="background:linear-gradient(135deg,#10b981,#059669)!important"><h2>\\u9a8c\\u8bc1\\u6210\\u529f</h2><p>\\u529f\\u80fd\\u5df2\\u6fc0\\u6d3b</p></div><div class="cdk-bd"><div style="text-align:center;font-size:40px;margin-bottom:12px">&#10004;</div><div style="display:flex;justify-content:space-between;padding:4px 0;font-size:12px"><span style="color:#888">\\u7528\\u6237ID</span><span style="font-weight:bold">\\'+_E(uid)+\\'</span></div>\\'+(sz!==null?\\'<div style="display:flex;justify-content:space-between;padding:4px 0;font-size:12px"><span style="color:#888">\\u811a\\u672c</span><span style="font-weight:bold">\\'+sz.toLocaleString()+\\'\\u5b57\\u8282</span></div>\\':\\'\\')+(w?\\'<div class="cdk-err" style="margin-top:8px">\\'+_E(w)+\\'</div>\\':\\'\\')+\\'<div style="display:flex;gap:8px;margin-top:16px"><button id="cdk-cls" style="flex:1;padding:10px;border:none;border-radius:8px;font-size:13px;cursor:pointer;background:#e5e7eb;color:#374151;font-weight:bold">\\u5173\\u95ed</button><button id="cdk-out" style="flex:1;padding:10px;border:none;border-radius:8px;font-size:13px;cursor:pointer;background:#ef4444;color:#fff;font-weight:bold">\\u6ce8\\u9500</button></div></div></div>\\';document.body.appendChild(o);document.getElementById("cdk-cls").onclick=function(){o.remove();};document.getElementById("cdk-out").onclick=function(){R("logout",{userId:uid}).catch(function(){});GM_deleteValue("cdk_ok");o.remove();_show();};setTimeout(function(){if(o.parentNode)o.remove();},5000);}',
-    '',
-    'function _hb(uid,tk,hw){var t=tk;setInterval(function(){R("heartbeat",{userId:uid,heartbeatToken:t}).then(function(r){if(r.code!==0){GM_deleteValue("cdk_ok");return;}return SH(r.data.challenge).then(function(k){return DC(r.data.encrypted,r.data.iv,k);});}).then(function(dec){if(!dec)return;var j=JSON.parse(dec);t=j.heartbeatToken;return _encryptData({uid:uid,hw:hw,tk:t,exp:j.expiresAt},hw);}).then(function(enc){if(!enc)return;GM_setValue("cdk_ok",enc);}).catch(function(){});},60000);}',
-    '',
-    'function _rm(){var els=document.querySelectorAll(".cdk-wrap");for(var i=0;i<els.length;i++)els[i].remove();}',
-    'function _E(s){var d=document.createElement("div");d.textContent=s;return d.innerHTML;}',
-    '})();',
-  ].join('\n');
+  
+  // 用模板字面量直接拼接，避免嵌套转义
+  return `// ==UserScript==
+// @name         CDK 卡密验证
+// @namespace    https://cdk.lat
+// @version      4.0
+// @description  安全卡密验证客户端（反调试 + 设备绑定 + 凭证加密）
+// @author       CDK
+// @match        *://*/*
+// @grant        GM_setValue
+// @grant        GM_getValue
+// @grant        GM_deleteValue
+// @run-at       document-end
+// ==/UserScript==
+
+(function(){
+'use strict';
+var K=["${appKey}"];var S=["${appSecret}"];var A="${base}";
+var css='.cdk-wrap{position:fixed!important;top:0!important;left:0!important;right:0!important;bottom:0!important;z-index:2147483647!important;background:rgba(0,0,0,0.6)!important;display:flex!important;align-items:center!important;justify-content:center!important}.cdk-box{background:#fff!important;border-radius:18px!important;width:360px!important;max-width:90vw!important;overflow:hidden!important;box-shadow:0 20px 50px rgba(0,0,0,0.4)!important;font-family:Arial,sans-serif!important}.cdk-hd{padding:26px 20px!important;background:linear-gradient(135deg,#3b82f6,#6366f1)!important;color:#fff!important;text-align:center!important}.cdk-hd h2{margin:0!important;font-size:19px!important}.cdk-hd p{margin:4px 0 0!important;font-size:12px!important;opacity:0.85!important}.cdk-bd{padding:24px 20px!important}.cdk-bd input{width:100%!important;padding:12px!important;border:1.5px solid #d1d5db!important;border-radius:10px!important;font-size:14px!important;outline:none!important;box-sizing:border-box!important;margin-bottom:14px!important;text-align:center!important}.cdk-bd button{width:100%!important;padding:12px!important;border:none!important;border-radius:10px!important;font-size:15px!important;font-weight:bold!important;cursor:pointer!important;color:#fff!important;background:linear-gradient(135deg,#3b82f6,#6366f1)!important}.cdk-bd button:disabled{opacity:0.6!important;cursor:not-allowed!important}.cdk-err{background:#fee2e2!important;color:#dc2626!important;padding:10px 14px!important;border-radius:8px!important;font-size:12px!important;margin-bottom:14px!important;text-align:center!important}';
+var d=document.createElement('style');d.textContent=css;document.head.appendChild(d);
+
+// 反调试检测
+var _safe=true;
+(function(){
+  var _ns=/function\\s+\\w+\\(\\)\\s*\\{\\s*\\[native code\\]\\s*\\}/;
+  try{if(!_ns.test(Function.prototype.toString.call(Function))||!Function.prototype.toString.toString().includes("[native code]"))_safe=false;}catch(e){_safe=false;}
+  try{if(!_ns.test(fetch.toString()))_safe=false;}catch(e){_safe=false;}
+  try{if(!_ns.test(crypto.subtle.importKey.toString()))_safe=false;}catch(e){_safe=false;}
+  try{if(!_ns.test(crypto.subtle.decrypt.toString()))_safe=false;}catch(e){_safe=false;}
+  try{if(typeof GM_setValue==="undefined")_safe=false;}catch(e){_safe=false;}
+  try{if(typeof GM_getValue==="undefined")_safe=false;}catch(e){_safe=false;}
+})();
+if(!_safe){GM_deleteValue("cdk_ok");location.reload();}
+
+// 控制台检测
+var _cs=0;var _ct=Date.now();
+setInterval(function(){_cs++;var _nd=Date.now();if(_cs>10&&(_nd-_ct)/_cs>150){GM_deleteValue("cdk_ok");location.reload();}if(_cs===10){_cs=0;_ct=_nd;}},50);
+// debugger陷阱
+setInterval(function(){try{(function(){}).constructor("debugger")();}catch(e){}},200);
+
+// 加密工具
+function H(d,k){return crypto.subtle.importKey("raw",new TextEncoder().encode(k),{name:"HMAC",hash:"SHA-256"},false,["sign"]).then(function(ky){return crypto.subtle.sign("HMAC",ky,new TextEncoder().encode(d));}).then(function(s){return Array.from(new Uint8Array(s)).map(function(b){return b.toString(16).padStart(2,"0");}).join("");});}
+function SH(d){return crypto.subtle.digest("SHA-256",new TextEncoder().encode(d)).then(function(h){return new Uint8Array(h);});}
+function DC(e,i,k){var ib=Uint8Array.from(atob(i),function(c){return c.charCodeAt(0);});var eb=Uint8Array.from(atob(e),function(c){return c.charCodeAt(0);});return crypto.subtle.importKey("raw",k,{name:"AES-CBC"},false,["decrypt"]).then(function(ck){return crypto.subtle.decrypt({name:"AES-CBC",iv:ib},ck,eb);}).then(function(d){return new TextDecoder().decode(d);});}
+function R(ep,p){p=p||{};var t=Date.now();var n=Array.from(crypto.getRandomValues(new Uint8Array(8))).map(function(b){return b.toString(16).padStart(2,"0");}).join("");p.appKey=K[0];p.timestamp=t;p.nonce=n;var b=JSON.stringify(p);return H(t+n+b,S[0]).then(function(sig){p.signature=sig;return fetch(A+"/client/"+ep,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(p)});}).then(function(r){return r.json();});}
+function F(){var h={cpuName:"browser",cpuCores:navigator.hardwareConcurrency||1,cpuArch:navigator.platform||"web",cpuSerial:"",mbSerial:"",mbManufacturer:"",biosUuid:"",biosVersion:"",diskSerial:"",diskModel:"",macAddresses:["00:00:00:00:00:00"],totalMemory:0,osName:navigator.platform||"web",osVersion:navigator.userAgent||"",hostname:location.hostname,machineArch:navigator.platform||"",screenResolution:screen.width+"x"+screen.height,timezone:Intl.DateTimeFormat().resolvedOptions().timeZone,language:navigator.language};return JSON.stringify(h,Object.keys(h).sort());}
+
+// 凭证加密存储
+function _enc(data,hw){var raw=JSON.stringify(data);return SH(hw).then(function(hk){var iv=crypto.getRandomValues(new Uint8Array(12));return crypto.subtle.importKey("raw",hk,{name:"AES-GCM"},false,["encrypt"]).then(function(k){return crypto.subtle.encrypt({name:"AES-GCM",iv:iv},k,new TextEncoder().encode(raw));}).then(function(enc){var buf=new Uint8Array(enc);var out=new Uint8Array(iv.length+buf.length);out.set(iv);out.set(buf,12);return btoa(Array.from(out).map(function(b){return String.fromCharCode(b);}).join(""));});});}
+function _dec(blob,hw){return SH(hw).then(function(hk){var raw=Uint8Array.from(atob(blob),function(c){return c.charCodeAt(0);});var iv=raw.slice(0,12);var ct=raw.slice(12);return crypto.subtle.importKey("raw",hk,{name:"AES-GCM"},false,["decrypt"]).then(function(k){return crypto.subtle.decrypt({name:"AES-GCM",iv:iv},k,ct);}).then(function(d){return JSON.parse(new TextDecoder().decode(d));});});}
+
+// 主流程
+var _hw=F();
+var _enc=GM_getValue("cdk_ok",null);
+if(_enc&&typeof _enc==="string"){_dec(_enc,_hw).then(function(cv){if(cv&&cv.uid&&cv.tk){_load(cv.uid,cv.tk);}else{GM_deleteValue("cdk_ok");_show();}}).catch(function(){GM_deleteValue("cdk_ok");_show();});}
+else{GM_deleteValue("cdk_ok");_show();}
+
+function _show(){_rm();var w=document.createElement("div");w.className="cdk-wrap";w.innerHTML='<div class="cdk-box"><div class="cdk-hd"><h2>'+'\\u5361\\u5bc6\\u9a8c\\u8bc1'+'</h2><p>'+'\\u8bf7\\u8f93\\u5165\\u5361\\u5bc6\\u4ee5\\u6fc0\\u6d3b'+'</p></div><div class="cdk-bd"><input class="cdk-in" type="text" placeholder="'+'\\u8bf7\\u8f93\\u5165\\u5361\\u5bc6'+'" autocomplete="off"><button class="cdk-btn">'+'\\u9a8c\\u8bc1\\u5e76\\u6fc0\\u6d3b'+'</button></div></div>';document.body.appendChild(w);var ci=w.querySelector(".cdk-in");var btn=w.querySelector(".cdk-btn");var er=null;function se(m){if(er)er.remove();er=document.createElement("div");er.className="cdk-err";er.textContent=m;w.querySelector(".cdk-bd").insertBefore(er,w.querySelector(".cdk-bd").firstChild);}btn.addEventListener("click",function(){var ck=ci.value.trim();if(!ck){se("\\u8bf7\\u8f93\\u5165\\u5361\\u5bc6");ci.focus();return;}if(er)er.remove();btn.disabled=true;btn.textContent="\\u9a8c\\u8bc1\\u4e2d...";var _ch="";R("challenge").then(function(cr){_ch=cr.data.challenge;return H(_ch+ck+_hw,S[0]).then(function(s){return R("activate",{cardKey:ck,username:_hw,hardwareInfo:_hw,challengeResponse:_ch+":"+s});});}).then(function(r){if(r.code!==0){se(r.message);btn.disabled=false;btn.textContent="\\u9a8c\\u8bc1\\u5e76\\u6fc0\\u6d3b";return;}var d=r.data;return SH(_ch).then(function(k){return DC(d.encrypted,d.iv,k);}).then(function(dec){var j=JSON.parse(dec);var uid=d.userId,tk=j.heartbeatToken;return _enc({uid:uid,hw:_hw,tk:tk,exp:j.expiresAt},_hw).then(function(enc){GM_setValue("cdk_ok",enc);_rm();return _load(uid,tk);});});}).catch(function(e){se(e.message||"\\u7f51\\u7edc\\u9519\\u8bef");btn.disabled=false;btn.textContent="\\u9a8c\\u8bc1\\u5e76\\u6fc0\\u6d3b";});});ci.addEventListener("keydown",function(e){if(e.key==="Enter")btn.click();});setTimeout(function(){ci.focus();},200);}
+
+function _load(uid,tk){R("script",{userId:uid,heartbeatToken:tk}).then(function(r){if(r.code===2010||r.code===404){_ok(uid,null);_hb(uid,tk);return;}if(r.code!==0)throw new Error(r.message);var d=r.data;return DC(d.encrypted,d.iv,SH(d.challenge).then(function(k){return k;})).then(function(code){var cl=code.length;try{var fn=(function(){}).constructor(code);fn.call(window);fn=null;code=null;}catch(ee){_ok(uid,null,"\\u6267\\u884c\\u5931\\u8d25: "+ee.message);return;}_ok(uid,d.scriptSize||cl);_hb(uid,tk);});}).catch(function(e){_ok(uid,null,"\\u52a0\\u8f7d\\u5931\\u8d25: "+e.message);_hb(uid,tk);});}
+
+function _ok(uid,sz,w){_rm();var o=document.createElement("div");o.className="cdk-wrap";o.innerHTML='<div class="cdk-box"><div class="cdk-hd" style="background:linear-gradient(135deg,#10b981,#059669)!important"><h2>'+'\\u9a8c\\u8bc1\\u6210\\u529f'+'</h2><p>'+'\\u529f\\u80fd\\u5df2\\u6fc0\\u6d3b'+'</p></div><div class="cdk-bd"><div style="text-align:center;font-size:40px;margin-bottom:12px">&#10004;</div><div style="display:flex;justify-content:space-between;padding:4px 0;font-size:12px"><span style="color:#888">'+'\\u7528\\u6237ID'+'</span><span style="font-weight:bold">'+_E(uid)+'</span></div>'+(sz!==null?'<div style="display:flex;justify-content:space-between;padding:4px 0;font-size:12px"><span style="color:#888">'+'\\u811a\\u672c'+'</span><span style="font-weight:bold">'+sz.toLocaleString()+''+'\\u5b57\\u8282'+'</span></div>':'')+(w?'<div class="cdk-err" style="margin-top:8px">'+_E(w)+'</div>':'')+'<div style="display:flex;gap:8px;margin-top:16px"><button id="cdk-cls" style="flex:1;padding:10px;border:none;border-radius:8px;font-size:13px;cursor:pointer;background:#e5e7eb;color:#374151;font-weight:bold">'+'\\u5173\\u95ed'+'</button><button id="cdk-out" style="flex:1;padding:10px;border:none;border-radius:8px;font-size:13px;cursor:pointer;background:#ef4444;color:#fff;font-weight:bold">'+'\\u6ce8\\u9500'+'</button></div></div></div>';document.body.appendChild(o);document.getElementById("cdk-cls").onclick=function(){o.remove();};document.getElementById("cdk-out").onclick=function(){R("logout",{userId:uid}).catch(function(){});GM_deleteValue("cdk_ok");o.remove();_show();};setTimeout(function(){if(o.parentNode)o.remove();},5000);}
+
+function _hb(uid,tk){var t=tk;setInterval(function(){R("heartbeat",{userId:uid,heartbeatToken:t}).then(function(r){if(r.code!==0){GM_deleteValue("cdk_ok");return;}return SH(r.data.challenge).then(function(k){return DC(r.data.encrypted,r.data.iv,k);});}).then(function(dec){if(!dec)return;var j=JSON.parse(dec);t=j.heartbeatToken;return _enc({uid:uid,hw:_hw,tk:t,exp:j.expiresAt},_hw);}).then(function(enc){if(!enc)return;GM_setValue("cdk_ok",enc);}).catch(function(){});},60000);}
+
+function _rm(){var els=document.querySelectorAll(".cdk-wrap");for(var i=0;i<els.length;i++)els[i].remove();}
+function _E(s){var d=document.createElement("div");d.textContent=s;return d.innerHTML;}
+})();`;
 }
 
 function generateCode(lang: Lang, appKey: string, appSecret: string, apiBase: string): string {
