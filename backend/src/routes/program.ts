@@ -126,13 +126,18 @@ router.put('/:id/script', async (req: Request, res: Response) => {
       fail(res, ErrorCode.BAD_REQUEST, '缺少脚本代码');
       return;
     }
+    if (typeof scriptCode !== 'string' || scriptCode.trim().length === 0) {
+      fail(res, ErrorCode.BAD_REQUEST, '脚本代码不能为空');
+      return;
+    }
     const result = await programService.saveProgramScript(req.ctx!.userId, req.ctx!.role, req.params.id, scriptCode);
     if (result.code === 0) {
       success(res, result.data, result.message);
     } else {
       fail(res, result.code, result.message, result.code === 404 ? 404 : 400);
     }
-  } catch (e) {
+  } catch (e: any) {
+    console.error('[PUT /programs/:id/script]', e.message, e.stack);
     serverError(res);
   }
 });
