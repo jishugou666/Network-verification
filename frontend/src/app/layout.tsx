@@ -3,11 +3,11 @@
 import './globals.css';
 import { useState, useEffect } from 'react';
 import { Toaster } from 'react-hot-toast';
-import { usepathname, useRouter } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { getToken, setToken, authApi } from '@/lib/api';
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
-  const pathname = usepathname();
+  const pathname = usePathname();
   const router = useRouter();
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
