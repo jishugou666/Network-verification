@@ -118,6 +118,34 @@ router.put('/:id/status', async (req: Request, res: Response) => {
   }
 });
 
+// 获取程序UI配置
+router.get('/:id/ui-config', async (req: Request, res: Response) => {
+  try {
+    const result = await programService.getProgramUIConfig(req.ctx!.userId, req.ctx!.role, req.params.id);
+    if (result.code === 0) {
+      success(res, result.data, result.message);
+    } else {
+      fail(res, result.code, result.message, 404);
+    }
+  } catch (e) {
+    serverError(res);
+  }
+});
+
+// 更新程序UI配置
+router.put('/:id/ui-config', async (req: Request, res: Response) => {
+  try {
+    const result = await programService.updateProgramUIConfig(req.ctx!.userId, req.ctx!.role, req.params.id, req.body);
+    if (result.code === 0) {
+      success(res, result.data, result.message);
+    } else {
+      fail(res, result.code, result.message, result.code === 404 ? 404 : 409);
+    }
+  } catch (e) {
+    serverError(res);
+  }
+});
+
 // 保存脚本代码
 router.put('/:id/script', async (req: Request, res: Response) => {
   try {

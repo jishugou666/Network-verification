@@ -134,6 +134,8 @@ export async function listCards(
         endUserId: true,
         bannedAt: true,
         bannedReason: true,
+        unbindCount: true,
+        unbindMax: true,
         program: { select: { name: true, slug: true } },
         endUser: { select: { username: true } },
       },
@@ -290,6 +292,31 @@ export async function resetDeviceBinding(agentId: string, role: string, cardId: 
   });
 
   return { code: 0, message: '设备绑定已重置', data: null };
+}
+
+// ==================== 管理员解绑设备 ====================
+export async function adminUnbind(agentId: string, role: string, cardId: string) {
+  const where: any = { id: cardId };
+  if (role !== 'root') {
+    where.agentId = agentId;
+  }
+
+  const card = await prisma.cardKey.findUnique({ where });
+  if (!card) return { code: 404, message: '卡密不存在或无权操作', data: null };
+  if (!card.endUserId) return { code: 400, message: '该卡密未绑定用户', data: null };
+  if (card.unbindCount >= card.unbindMax) return { code: 2012, message: `解绑次数已达上限 (${card.unbindMax}次)`, data: null };
+
+  await prisma.$transaction([
+    prisma.heartbeatToken.updateMany({ where: { endUserId: card.endUserId!, used: false }, data: { used: true } }),
+    prisma.device.deleteMany({ where: { endUserId: card.endUserId! } }),
+    prisma.cardKey.update({ where: { id: cardId }, data: { endUserId: null, status: 'inactive', activatedAt: null, expiresAt: null, unbindCount: { increment: 1 } } }),
+  ]);
+
+  await prisma.operationLog.create({
+    data: { userId: agentId, action: 'admin_unbind', target: 'card_key', targetId: cardId, detail: JSON.stringify({ unbindCount: card.unbindCount + 1 }) },
+  });
+
+  return { code: 0, message: `解绑成功（已用 ${card.unbindCount + 1}/${card.unbindMax} 次）`, data: { used: card.unbindCount + 1, max: card.unbindMax } };
 }
 
 // ==================== 导出卡密 ====================

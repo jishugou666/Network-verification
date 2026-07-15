@@ -70,6 +70,8 @@ export const programApi = {
   saveScript: (id: string, scriptCode: string) => api.put<any>(`/programs/${id}/script`, { scriptCode }),
   disableScript: (id: string) => api.delete<any>(`/programs/${id}/script`),
   obfuscate: (code: string) => api.post<any>('/programs/obfuscate', { code }),
+  getUIConfig: (id: string) => api.get<any>(`/programs/${id}/ui-config`),
+  updateUIConfig: (id: string, config: any) => api.put<any>(`/programs/${id}/ui-config`, config),
 };
 
 // Cards
@@ -84,6 +86,7 @@ export const cardApi = {
   extend: (cardIds: string[], extendDays: number) => api.post('/cards/extend', { cardIds, extendDays }),
   resetDevice: (id: string) => api.post(`/cards/${id}/reset-device`),
   getDetail: (id: string) => api.get<any>(`/cards/${id}`),
+  unbind: (id: string) => api.post<any>(`/cards/${id}/unbind`),
 };
 
 // Users

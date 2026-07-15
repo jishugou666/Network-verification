@@ -98,6 +98,27 @@ router.post('/script', signatureMiddleware, async (req: Request, res: Response) 
   }
 });
 
+// ==================== 设备解绑 ====================
+// POST /api/client/unbind
+// Body: { appKey, userId, heartbeatToken, timestamp, nonce, signature }
+router.post('/unbind', signatureMiddleware, async (req: Request, res: Response) => {
+  try {
+    const { appKey, userId, heartbeatToken } = req.body;
+    if (!userId || !heartbeatToken) {
+      fail(res, ErrorCode.BAD_REQUEST, '缺少必要参数');
+      return;
+    }
+    const result = await verifyService.unbindDevice(appKey, userId, heartbeatToken);
+    if (result.code === 0) {
+      success(res, result.data, result.message);
+    } else {
+      fail(res, result.code, result.message);
+    }
+  } catch (e) {
+    serverError(res);
+  }
+});
+
 // ==================== 登出 ====================
 // POST /api/client/logout
 // Body: { appKey, userId, timestamp, nonce, signature }

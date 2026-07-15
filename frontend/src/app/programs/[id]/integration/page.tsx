@@ -25,15 +25,32 @@ const LANGUAGES = [
 
 type Lang = (typeof LANGUAGES)[number];
 
-function getClientScriptTemplate(appKey: string, appSecret: string, apiBase: string): string {
+function getClientScriptTemplate(appKey: string, appSecret: string, apiBase: string, uiConfig?: any): string {
   const base = apiBase.replace(/\/api$/, '');
   
-  // 用模板字面量直接拼接，避免嵌套转义
+  // 从配置或默认值提取UI参数
+  const cfg = uiConfig || {};
+  const bg = cfg.bg || '#3b82f6';
+  const bg2 = cfg.bg2 || '#6366f1';
+  const title = cfg.title ? ('\\u' + [...cfg.title].map(c => c.charCodeAt(0).toString(16).padStart(4,'0')).join('\\u')) : '\\u5361\\u5bc6\\u9a8c\\u8bc1';
+  const subtitle = cfg.subtitle ? ('\\u' + [...cfg.subtitle].map(c => c.charCodeAt(0).toString(16).padStart(4,'0')).join('\\u')) : '\\u8bf7\\u8f93\\u5165\\u5361\\u5bc6\\u4ee5\\u6fc0\\u6d3b';
+  const btnText = cfg.btnText ? ('\\u' + [...cfg.btnText].map(c => c.charCodeAt(0).toString(16).padStart(4,'0')).join('\\u')) : '\\u9a8c\\u8bc1\\u5e76\\u6fc0\\u6d3b';
+  const radius = cfg.radius || 18;
+  const inputRadius = cfg.inputRadius || 10;
+  const btnH = cfg.btnH || '#3b82f6';
+  const btnH2 = cfg.btnH2 || '#6366f1';
+  
+  // 成功浮层颜色
+  const okBg = cfg.okBg || '#10b981';
+  const okBg2 = cfg.okBg2 || '#059669';
+  const okTitle = cfg.okTitle ? ('\\u' + [...cfg.okTitle].map(c => c.charCodeAt(0).toString(16).padStart(4,'0')).join('\\u')) : '\\u9a8c\\u8bc1\\u6210\\u529f';
+  const okSub = cfg.okSub ? ('\\u' + [...cfg.okSub].map(c => c.charCodeAt(0).toString(16).padStart(4,'0')).join('\\u')) : '\\u529f\\u80fd\\u5df2\\u6fc0\\u6d3b';
+
   return `// ==UserScript==
 // @name         CDK 卡密验证
 // @namespace    https://cdk.lat
-// @version      4.0
-// @description  安全卡密验证客户端（反调试 + 设备绑定 + 凭证加密）
+// @version      5.0
+// @description  安全卡密验证+解绑
 // @author       CDK
 // @match        *://*/*
 // @grant        GM_setValue
@@ -43,46 +60,39 @@ function getClientScriptTemplate(appKey: string, appSecret: string, apiBase: str
 // ==/UserScript==
 
 (function(){
-'use strict';
 var K=["${appKey}"];var S=["${appSecret}"];var A="${base}";
-var css='.cdk-wrap{position:fixed!important;top:0!important;left:0!important;right:0!important;bottom:0!important;z-index:2147483647!important;background:rgba(0,0,0,0.6)!important;display:flex!important;align-items:center!important;justify-content:center!important}.cdk-box{background:#fff!important;border-radius:18px!important;width:360px!important;max-width:90vw!important;overflow:hidden!important;box-shadow:0 20px 50px rgba(0,0,0,0.4)!important;font-family:Arial,sans-serif!important}.cdk-hd{padding:26px 20px!important;background:linear-gradient(135deg,#3b82f6,#6366f1)!important;color:#fff!important;text-align:center!important}.cdk-hd h2{margin:0!important;font-size:19px!important}.cdk-hd p{margin:4px 0 0!important;font-size:12px!important;opacity:0.85!important}.cdk-bd{padding:24px 20px!important}.cdk-bd input{width:100%!important;padding:12px!important;border:1.5px solid #d1d5db!important;border-radius:10px!important;font-size:14px!important;outline:none!important;box-sizing:border-box!important;margin-bottom:14px!important;text-align:center!important}.cdk-bd button{width:100%!important;padding:12px!important;border:none!important;border-radius:10px!important;font-size:15px!important;font-weight:bold!important;cursor:pointer!important;color:#fff!important;background:linear-gradient(135deg,#3b82f6,#6366f1)!important}.cdk-bd button:disabled{opacity:0.6!important;cursor:not-allowed!important}.cdk-err{background:#fee2e2!important;color:#dc2626!important;padding:10px 14px!important;border-radius:8px!important;font-size:12px!important;margin-bottom:14px!important;text-align:center!important}';
+
+var U={bg:"${bg}",bg2:"${bg2}",radius:${radius},iradius:${inputRadius},btnH:"${btnH}",btnH2:"${btnH2}",okBg:"${okBg}",okBg2:"${okBg2}"};
+
+var css='.cdk-wrap{position:fixed!important;top:0!important;left:0!important;right:0!important;bottom:0!important;z-index:2147483647!important;background:rgba(0,0,0,0.6)!important;display:flex!important;align-items:center!important;justify-content:center!important}.cdk-box{background:#fff!important;border-radius:'+U.radius+'px!important;width:360px!important;max-width:90vw!important;overflow:hidden!important;box-shadow:0 20px 50px rgba(0,0,0,0.4)!important;font-family:Arial,sans-serif!important}.cdk-hd{padding:26px 20px!important;background:linear-gradient(135deg,'+U.bg+','+U.bg2+')!important;color:#fff!important;text-align:center!important}.cdk-hd h2{margin:0!important;font-size:19px!important}.cdk-hd p{margin:4px 0 0!important;font-size:12px!important;opacity:0.85!important}.cdk-bd{padding:24px 20px!important}.cdk-bd input{width:100%!important;padding:12px!important;border:1.5px solid #d1d5db!important;border-radius:'+U.iradius+'px!important;font-size:14px!important;outline:none!important;box-sizing:border-box!important;margin-bottom:14px!important;text-align:center!important}.cdk-bd button{width:100%!important;padding:12px!important;border:none!important;border-radius:'+U.iradius+'px!important;font-size:15px!important;font-weight:bold!important;cursor:pointer!important;color:#fff!important;background:linear-gradient(135deg,'+U.btnH+','+U.btnH2+')!important}.cdk-bd button:disabled{opacity:0.6!important;cursor:not-allowed!important}.cdk-err{background:#fee2e2!important;color:#dc2626!important;padding:10px 14px!important;border-radius:8px!important;font-size:12px!important;margin-bottom:14px!important;text-align:center!important}';
 var d=document.createElement('style');d.textContent=css;document.head.appendChild(d);
 
-// API Hook 检测（仅检测核心加密API，不做定时检测避免闪烁）
 var _safe=true;
-(function(){
-  try{if(!/function\\s+\\w+\\(\\)\\s*\\{\\s*\\[native code\\]\\s*\\}/.test(Function.prototype.toString.call(Function)))_safe=false;}catch(e){}
-  try{if(typeof crypto.subtle.importKey!=="function")_safe=false;}catch(e){}
-  try{if(typeof crypto.subtle.decrypt!=="function")_safe=false;}catch(e){}
-  try{if(typeof GM_setValue!=="function")_safe=false;}catch(e){}
-  try{if(typeof GM_getValue!=="function")_safe=false;}catch(e){}
-})();
+try{if(typeof crypto.subtle.importKey!=="function")_safe=false;}catch(e){}
+try{if(typeof GM_setValue!=="function")_safe=false;}catch(e){}
+try{if(typeof GM_getValue!=="function")_safe=false;}catch(e){}
 if(!_safe){GM_deleteValue("cdk_ok");location.reload();}
 
-// 加密工具
 function H(d,k){return crypto.subtle.importKey("raw",new TextEncoder().encode(k),{name:"HMAC",hash:"SHA-256"},false,["sign"]).then(function(ky){return crypto.subtle.sign("HMAC",ky,new TextEncoder().encode(d));}).then(function(s){return Array.from(new Uint8Array(s)).map(function(b){return b.toString(16).padStart(2,"0");}).join("");});}
 function SH(d){return crypto.subtle.digest("SHA-256",new TextEncoder().encode(d)).then(function(h){return new Uint8Array(h);});}
 function DC(e,i,k){var ib=Uint8Array.from(atob(i),function(c){return c.charCodeAt(0);});var eb=Uint8Array.from(atob(e),function(c){return c.charCodeAt(0);});return crypto.subtle.importKey("raw",k,{name:"AES-CBC"},false,["decrypt"]).then(function(ck){return crypto.subtle.decrypt({name:"AES-CBC",iv:ib},ck,eb);}).then(function(d){return new TextDecoder().decode(d);});}
 function R(ep,p){p=p||{};var t=Date.now();var n=Array.from(crypto.getRandomValues(new Uint8Array(8))).map(function(b){return b.toString(16).padStart(2,"0");}).join("");p.appKey=K[0];p.timestamp=t;p.nonce=n;var b=JSON.stringify(p);return H(t+n+b,S[0]).then(function(sig){p.signature=sig;return fetch(A+"/client/"+ep,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(p)});}).then(function(r){return r.json();});}
 function F(){var h={cpuName:"browser",cpuCores:navigator.hardwareConcurrency||1,cpuArch:navigator.platform||"web",cpuSerial:"",mbSerial:"",mbManufacturer:"",biosUuid:"",biosVersion:"",diskSerial:"",diskModel:"",macAddresses:["00:00:00:00:00:00"],totalMemory:0,osName:navigator.platform||"web",osVersion:navigator.userAgent||"",hostname:location.hostname,machineArch:navigator.platform||"",screenResolution:screen.width+"x"+screen.height,timezone:Intl.DateTimeFormat().resolvedOptions().timeZone,language:navigator.language};return JSON.stringify(h,Object.keys(h).sort());}
-
-// 凭证加密存储
 function _enc(data,hw){var raw=JSON.stringify(data);return SH(hw).then(function(hk){var iv=crypto.getRandomValues(new Uint8Array(12));return crypto.subtle.importKey("raw",hk,{name:"AES-GCM"},false,["encrypt"]).then(function(k){return crypto.subtle.encrypt({name:"AES-GCM",iv:iv},k,new TextEncoder().encode(raw));}).then(function(enc){var buf=new Uint8Array(enc);var out=new Uint8Array(iv.length+buf.length);out.set(iv);out.set(buf,12);return btoa(Array.from(out).map(function(b){return String.fromCharCode(b);}).join(""));});});}
 function _dec(blob,hw){return SH(hw).then(function(hk){var raw=Uint8Array.from(atob(blob),function(c){return c.charCodeAt(0);});var iv=raw.slice(0,12);var ct=raw.slice(12);return crypto.subtle.importKey("raw",hk,{name:"AES-GCM"},false,["decrypt"]).then(function(k){return crypto.subtle.decrypt({name:"AES-GCM",iv:iv},k,ct);}).then(function(d){return JSON.parse(new TextDecoder().decode(d));});});}
 
-// 主流程
 var _hw=F();
 var _enc=GM_getValue("cdk_ok",null);
 if(_enc&&typeof _enc==="string"){_dec(_enc,_hw).then(function(cv){if(cv&&cv.uid&&cv.tk){_load(cv.uid,cv.tk);}else{GM_deleteValue("cdk_ok");_show();}}).catch(function(){GM_deleteValue("cdk_ok");_show();});}
 else{GM_deleteValue("cdk_ok");_show();}
 
-function _show(){_rm();var w=document.createElement("div");w.className="cdk-wrap";w.innerHTML='<div class="cdk-box"><div class="cdk-hd"><h2>'+'\\u5361\\u5bc6\\u9a8c\\u8bc1'+'</h2><p>'+'\\u8bf7\\u8f93\\u5165\\u5361\\u5bc6\\u4ee5\\u6fc0\\u6d3b'+'</p></div><div class="cdk-bd"><input class="cdk-in" type="text" placeholder="'+'\\u8bf7\\u8f93\\u5165\\u5361\\u5bc6'+'" autocomplete="off"><button class="cdk-btn">'+'\\u9a8c\\u8bc1\\u5e76\\u6fc0\\u6d3b'+'</button></div></div>';document.body.appendChild(w);var ci=w.querySelector(".cdk-in");var btn=w.querySelector(".cdk-btn");var er=null;function se(m){if(er)er.remove();er=document.createElement("div");er.className="cdk-err";er.textContent=m;w.querySelector(".cdk-bd").insertBefore(er,w.querySelector(".cdk-bd").firstChild);}btn.addEventListener("click",function(){var ck=ci.value.trim();if(!ck){se("\\u8bf7\\u8f93\\u5165\\u5361\\u5bc6");ci.focus();return;}if(er)er.remove();btn.disabled=true;btn.textContent="\\u9a8c\\u8bc1\\u4e2d...";var _ch="";R("challenge").then(function(cr){_ch=cr.data.challenge;return H(_ch+ck+_hw,S[0]).then(function(s){return R("activate",{cardKey:ck,username:_hw,hardwareInfo:_hw,challengeResponse:_ch+":"+s});});}).then(function(r){if(r.code!==0){se(r.message);btn.disabled=false;btn.textContent="\\u9a8c\\u8bc1\\u5e76\\u6fc0\\u6d3b";return;}var d=r.data;return SH(_ch).then(function(k){return DC(d.encrypted,d.iv,k);}).then(function(dec){var j=JSON.parse(dec);var uid=d.userId,tk=j.heartbeatToken;return _enc({uid:uid,hw:_hw,tk:tk,exp:j.expiresAt},_hw).then(function(enc){GM_setValue("cdk_ok",enc);_rm();return _load(uid,tk);});});}).catch(function(e){se(e.message||"\\u7f51\\u7edc\\u9519\\u8bef");btn.disabled=false;btn.textContent="\\u9a8c\\u8bc1\\u5e76\\u6fc0\\u6d3b";});});ci.addEventListener("keydown",function(e){if(e.key==="Enter")btn.click();});setTimeout(function(){ci.focus();},200);}
+function _show(){_rm();var w=document.createElement("div");w.className="cdk-wrap";w.innerHTML='<div class="cdk-box"><div class="cdk-hd"><h2>${title}</h2><p>${subtitle}</p></div><div class="cdk-bd"><input class="cdk-in" type="text" placeholder="\\u8bf7\\u8f93\\u5165\\u5361\\u5bc6" autocomplete="off"><button class="cdk-btn">${btnText}</button></div></div>';document.body.appendChild(w);var ci=w.querySelector(".cdk-in");var btn=w.querySelector(".cdk-btn");var er=null;function se(m){if(er)er.remove();er=document.createElement("div");er.className="cdk-err";er.textContent=m;w.querySelector(".cdk-bd").insertBefore(er,w.querySelector(".cdk-bd").firstChild);}btn.addEventListener("click",function(){var ck=ci.value.trim();if(!ck){se("\\u8bf7\\u8f93\\u5165\\u5361\\u5bc6");ci.focus();return;}if(er)er.remove();btn.disabled=true;btn.textContent="\\u9a8c\\u8bc1\\u4e2d...";var _ch="";R("challenge").then(function(cr){_ch=cr.data.challenge;return H(_ch+ck+_hw,S[0]).then(function(s){return R("activate",{cardKey:ck,username:_hw,hardwareInfo:_hw,challengeResponse:_ch+":"+s});});}).then(function(r){if(r.code!==0){se(r.message);btn.disabled=false;btn.textContent="${btnText}";return;}var d=r.data;return SH(_ch).then(function(k){return DC(d.encrypted,d.iv,k);}).then(function(dec){var j=JSON.parse(dec);var uid=d.userId,tk=j.heartbeatToken;return _enc({uid:uid,hw:_hw,tk:tk,exp:j.expiresAt},_hw).then(function(enc){GM_setValue("cdk_ok",enc);_rm();return _load(uid,tk);});});}).catch(function(e){se(e.message||"\\u7f51\\u7edc\\u9519\\u8bef");btn.disabled=false;btn.textContent="${btnText}";});});ci.addEventListener("keydown",function(e){if(e.key==="Enter")btn.click();});setTimeout(function(){ci.focus();},200);}
 
 function _load(uid,tk){R("script",{userId:uid,heartbeatToken:tk}).then(function(r){if(r.code===2010||r.code===404){_ok(uid,null);_hb(uid,tk);return;}if(r.code!==0)throw new Error(r.message);var d=r.data;return DC(d.encrypted,d.iv,SH(d.challenge).then(function(k){return k;})).then(function(code){var cl=code.length;try{new Function(code)();code=null;}catch(ee){_ok(uid,null,"\\u6267\\u884c\\u5931\\u8d25: "+ee.message);return;}_ok(uid,d.scriptSize||cl);_hb(uid,tk);});}).catch(function(e){_ok(uid,null,"\\u52a0\\u8f7d\\u5931\\u8d25: "+e.message);_hb(uid,tk);});}
 
-function _ok(uid,sz,w){_rm();var o=document.createElement("div");o.className="cdk-wrap";o.innerHTML='<div class="cdk-box"><div class="cdk-hd" style="background:linear-gradient(135deg,#10b981,#059669)!important"><h2>'+'\\u9a8c\\u8bc1\\u6210\\u529f'+'</h2><p>'+'\\u529f\\u80fd\\u5df2\\u6fc0\\u6d3b'+'</p></div><div class="cdk-bd"><div style="text-align:center;font-size:40px;margin-bottom:12px">&#10004;</div><div style="display:flex;justify-content:space-between;padding:4px 0;font-size:12px"><span style="color:#888">'+'\\u7528\\u6237ID'+'</span><span style="font-weight:bold">'+_E(uid)+'</span></div>'+(sz!==null?'<div style="display:flex;justify-content:space-between;padding:4px 0;font-size:12px"><span style="color:#888">'+'\\u811a\\u672c'+'</span><span style="font-weight:bold">'+sz.toLocaleString()+''+'\\u5b57\\u8282'+'</span></div>':'')+(w?'<div class="cdk-err" style="margin-top:8px">'+_E(w)+'</div>':'')+'<div style="display:flex;gap:8px;margin-top:16px"><button id="cdk-cls" style="flex:1;padding:10px;border:none;border-radius:8px;font-size:13px;cursor:pointer;background:#e5e7eb;color:#374151;font-weight:bold">'+'\\u5173\\u95ed'+'</button><button id="cdk-out" style="flex:1;padding:10px;border:none;border-radius:8px;font-size:13px;cursor:pointer;background:#ef4444;color:#fff;font-weight:bold">'+'\\u6ce8\\u9500'+'</button></div></div></div>';document.body.appendChild(o);document.getElementById("cdk-cls").onclick=function(){o.remove();};document.getElementById("cdk-out").onclick=function(){R("logout",{userId:uid}).catch(function(){});GM_deleteValue("cdk_ok");o.remove();_show();};setTimeout(function(){if(o.parentNode)o.remove();},5000);}
-
-function _hb(uid,tk){var t=tk;setInterval(function(){R("heartbeat",{userId:uid,heartbeatToken:t}).then(function(r){if(r.code!==0){GM_deleteValue("cdk_ok");return;}return SH(r.data.challenge).then(function(k){return DC(r.data.encrypted,r.data.iv,k);});}).then(function(dec){if(!dec)return;var j=JSON.parse(dec);t=j.heartbeatToken;return _enc({uid:uid,hw:_hw,tk:t,exp:j.expiresAt},_hw);}).then(function(enc){if(!enc)return;GM_setValue("cdk_ok",enc);}).catch(function(){});},60000);}
+function _ok(uid,sz,w){_rm();var o=document.createElement("div");o.className="cdk-wrap";o.innerHTML='<div class="cdk-box"><div class="cdk-hd" style="background:linear-gradient(135deg,'+U.okBg+','+U.okBg2+')!important"><h2>${okTitle}</h2><p>${okSub}</p></div><div class="cdk-bd"><div style="text-align:center;font-size:40px;margin-bottom:12px">&#10004;</div><div style="display:flex;justify-content:space-between;padding:4px 0;font-size:12px"><span style="color:#888">\\u7528\\u6237ID</span><span style="font-weight:bold">'+_E(uid)+'</span></div>'+(sz!==null?'<div style="display:flex;justify-content:space-between;padding:4px 0;font-size:12px"><span style="color:#888">\\u811a\\u672c</span><span style="font-weight:bold">'+sz.toLocaleString()+''+'\\u5b57\\u8282'+'</span></div>':'')+(w?'<div class="cdk-err" style="margin-top:8px">'+_E(w)+'</div>':'')+'<div style="display:flex;gap:8px;margin-top:16px"><button id="cdk-cls" style="flex:1;padding:10px;border:none;border-radius:8px;font-size:13px;cursor:pointer;background:#e5e7eb;color:#374151;font-weight:bold">\\u5173\\u95ed</button><button id="cdk-out" style="flex:1;padding:10px;border:none;border-radius:8px;font-size:13px;cursor:pointer;background:#ef4444;color:#fff;font-weight:bold">\\u6ce8\\u9500</button><button id="cdk-unbind" style="flex:1;padding:10px;border:none;border-radius:8px;font-size:13px;cursor:pointer;background:#f59e0b;color:#fff;font-weight:bold">\\u89e3\\u7ed1\\u8bbe\\u5907</button></div></div></div>';document.body.appendChild(o);document.getElementById("cdk-cls").onclick=function(){o.remove();};document.getElementById("cdk-out").onclick=function(){R("logout",{userId:uid}).catch(function(){});GM_deleteValue("cdk_ok");o.remove();_show();};document.getElementById("cdk-unbind").onclick=function(){if(!confirm("\\u786e\\u5b9a\\u89e3\\u7ed1\\u5f53\\u524d\\u8bbe\\u5907\\uff1f\\u89e3\\u7ed1\\u540e\\u53ef\\u5728\\u5176\\u4ed6\\u8bbe\\u5907\\u4f7f\\u7528\\u6b64\\u5361\\u5bc6\\u767b\\u5f55\\u3002"))return;var uBtn=document.getElementById("cdk-unbind");uBtn.disabled=true;uBtn.textContent="\\u89e3\\u7ed1\\u4e2d...";var tk;try{tk=JSON.parse(GM_getValue("cdk_ok","{}").tk||"")}catch(e){}R("unbind",{userId:uid,heartbeatToken:_hbCur||tk}).then(function(r){uBtn.disabled=false;if(r.code===0){alert(r.message);GM_deleteValue("cdk_ok");o.remove();_show();}else{alert(r.message);uBtn.textContent="\\u89e3\\u7ed1\\u8bbe\\u5907";}}).catch(function(){uBtn.disabled=false;uBtn.textContent="\\u89e3\\u7ed1\\u8bbe\\u5907";});};setTimeout(function(){if(o.parentNode)o.remove();},5000);}
+var _hbCur=null;
+function _hb(uid,tk){_hbCur=tk;var t=tk;setInterval(function(){R("heartbeat",{userId:uid,heartbeatToken:t}).then(function(r){if(r.code!==0){GM_deleteValue("cdk_ok");return;}return SH(r.data.challenge).then(function(k){return DC(r.data.encrypted,r.data.iv,k);});}).then(function(dec){if(!dec)return;var j=JSON.parse(dec);t=j.heartbeatToken;_hbCur=t;return _enc({uid:uid,hw:_hw,tk:t,exp:j.expiresAt},_hw);}).then(function(enc){if(!enc)return;GM_setValue("cdk_ok",enc);}).catch(function(){});},60000);}
 
 function _rm(){var els=document.querySelectorAll(".cdk-wrap");for(var i=0;i<els.length;i++)els[i].remove();}
 function _E(s){var d=document.createElement("div");d.textContent=s;return d.innerHTML;}
@@ -2522,7 +2532,8 @@ export default function IntegrationPage() {
   const [scriptEnabled, setScriptEnabled] = useState(false);
   const [scriptPreview, setScriptPreview] = useState('');
   const [scriptSize, setScriptSize] = useState(0);
-  const [obfuscating, setObfuscating] = useState(false);
+  const [uiConfig, setUiConfig] = useState<any>(null);
+  const [savingConfig, setSavingConfig] = useState(false);
 
   useEffect(() => {
     programApi.getIntegration(id).then(res => {
@@ -2535,6 +2546,10 @@ export default function IntegrationPage() {
         toast.error(res.message);
       }
     }).finally(() => setLoading(false));
+    // 加载UI配置
+    programApi.getUIConfig(id).then(res => {
+      if (res.code === 0 && res.data) setUiConfig(res.data);
+    }).catch(() => {});
   }, [id]);
 
   const apiBase = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
@@ -2584,11 +2599,14 @@ export default function IntegrationPage() {
     if (!scriptCode.trim()) { toast.error('请输入脚本代码'); return; }
     setScriptSaving(true);
     try {
-      const res = await programApi.saveScript(id, scriptCode);
+      // 自动混淆后保存
+      const obRes = await programApi.obfuscate(scriptCode);
+      const finalCode = obRes.code === 0 ? obRes.data!.obfuscated : scriptCode;
+      const res = await programApi.saveScript(id, finalCode);
       if (res.code === 0) {
-        toast.success('脚本保存成功');
+        toast.success('脚本已自动混淆并保存');
         setScriptEnabled(true);
-        setScriptSize(res.data?.scriptSize || scriptCode.length);
+        setScriptSize(res.data?.scriptSize || finalCode.length);
         setScriptPreview(res.data?.scriptPreview || '');
       } else {
         toast.error(res.message);
@@ -2609,41 +2627,34 @@ export default function IntegrationPage() {
     } catch { toast.error('操作失败'); }
   };
 
-  const handleObfuscate = async () => {
-    if (!scriptCode.trim()) { toast.error('请先输入脚本代码'); return; }
-    setObfuscating(true);
-    try {
-      const res = await programApi.obfuscate(scriptCode);
-      if (res.code === 0) {
-        setScriptCode(res.data!.obfuscated);
-        toast.success(`混淆完成! ${res.data!.originalSize.toLocaleString()} → ${res.data!.obfuscatedSize.toLocaleString()} 字符`);
-      } else {
-        toast.error(res.message);
-      }
-    } catch { toast.error('混淆失败'); }
-    finally { setObfuscating(false); }
-  };
-
   const handleDownloadClient = async () => {
     if (!program) return;
-    setObfuscating(true);
+    const clientSrc = getClientScriptTemplate(program.appKey, program.appSecret, apiBase + '/api', uiConfig);
+    const blob = new Blob([clientSrc], { type: 'application/javascript' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'cdk-client.user.js';
+    a.click();
+    URL.revokeObjectURL(url);
+    toast.success(`已下载客户端脚本 (${clientSrc.length.toLocaleString()} 字节)`);
+  };
+
+  const updateUIConfig = (key: string, value: string | number) => {
+    setUiConfig((prev: any) => ({ ...(prev || {}), [key]: value }));
+  };
+
+  const handleSaveUIConfig = async () => {
+    setSavingConfig(true);
     try {
-      const clientSrc = getClientScriptTemplate(program.appKey, program.appSecret, apiBase + '/api');
-      const res = await programApi.obfuscate(clientSrc);
+      const res = await programApi.updateUIConfig(id, uiConfig || {});
       if (res.code === 0) {
-        const blob = new Blob([res.data!.obfuscated], { type: 'application/javascript' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = 'cdk-client.user.js';
-        a.click();
-        URL.revokeObjectURL(url);
-        toast.success(`已下载混淆客户端脚本 (${res.data!.obfuscatedSize.toLocaleString()} 字节)`);
+        toast.success('UI 配置已保存');
       } else {
         toast.error(res.message);
       }
-    } catch { toast.error('生成失败'); }
-    finally { setObfuscating(false); }
+    } catch { toast.error('保存失败'); }
+    finally { setSavingConfig(false); }
   };
 
   const handleCopy = useCallback(() => {
@@ -2753,25 +2764,18 @@ export default function IntegrationPage() {
               </button>
             )}
             <button
-              onClick={handleObfuscate}
-              disabled={obfuscating}
-              className="px-4 py-1.5 text-xs font-medium text-orange-700 bg-orange-50 hover:bg-orange-100 border border-orange-200 rounded-lg transition-colors disabled:opacity-50"
-            >
-              {obfuscating ? '混淆中...' : '混淆代码'}
-            </button>
-            <button
               onClick={handleDownloadClient}
-              disabled={obfuscating || !program}
+              disabled={!program}
               className="px-4 py-1.5 text-xs font-medium text-green-700 bg-green-50 hover:bg-green-100 border border-green-200 rounded-lg transition-colors disabled:opacity-50"
             >
-              {obfuscating ? '处理中...' : '下载客户端'}
+              下载客户端
             </button>
             <button
               onClick={handleSaveScript}
               disabled={scriptSaving}
               className="px-4 py-1.5 text-xs font-medium text-white bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 rounded-lg shadow-sm shadow-blue-500/20 transition-all disabled:opacity-50"
             >
-              {scriptSaving ? '保存中...' : '保存脚本'}
+              {scriptSaving ? '保存中...' : '混淆并保存'}
             </button>
           </div>
         </div>
@@ -2806,6 +2810,124 @@ export default function IntegrationPage() {
             <pre className="text-xs text-gray-600 max-h-24 overflow-hidden whitespace-pre-wrap font-mono">{scriptPreview}</pre>
           </div>
         )}
+      </div>
+
+      {/* UI 定制面板 */}
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 mb-6">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-3">
+            <h3 className="text-sm font-semibold text-gray-800">界面定制</h3>
+            <span className="text-xs text-gray-400">自定义验证弹窗外观</span>
+          </div>
+          <div className="flex gap-2">
+            <button
+              onClick={handleSaveUIConfig}
+              disabled={savingConfig}
+              className="px-3 py-1.5 text-xs font-medium text-purple-700 bg-purple-50 hover:bg-purple-100 border border-purple-200 rounded-lg transition-colors disabled:opacity-50"
+            >
+              {savingConfig ? '保存中...' : '保存样式'}
+            </button>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {/* 登录弹窗 */}
+          <div>
+            <h4 className="text-xs font-semibold text-gray-600 mb-3">登录弹窗</h4>
+            <div className="space-y-2">
+              <div>
+                <label className="text-xs text-gray-500">标题文字</label>
+                <input className="glass-input w-full mt-1" value={uiConfig?.title || ''} placeholder="卡密验证" onChange={e => updateUIConfig('title', e.target.value)} />
+              </div>
+              <div>
+                <label className="text-xs text-gray-500">副标题</label>
+                <input className="glass-input w-full mt-1" value={uiConfig?.subtitle || ''} placeholder="请输入卡密以激活" onChange={e => updateUIConfig('subtitle', e.target.value)} />
+              </div>
+              <div>
+                <label className="text-xs text-gray-500">按钮文字</label>
+                <input className="glass-input w-full mt-1" value={uiConfig?.btnText || ''} placeholder="验证并激活" onChange={e => updateUIConfig('btnText', e.target.value)} />
+              </div>
+              <div className="flex gap-2">
+                <div className="flex-1">
+                  <label className="text-xs text-gray-500">头部颜色</label>
+                  <div className="flex items-center gap-2 mt-1">
+                    <input type="color" className="w-8 h-8 rounded cursor-pointer border-0" value={uiConfig?.bg || '#3b82f6'} onChange={e => updateUIConfig('bg', e.target.value)} />
+                    <input className="glass-input flex-1" value={uiConfig?.bg || '#3b82f6'} onChange={e => updateUIConfig('bg', e.target.value)} />
+                  </div>
+                </div>
+                <div className="flex-1">
+                  <label className="text-xs text-gray-500">渐变颜色</label>
+                  <div className="flex items-center gap-2 mt-1">
+                    <input type="color" className="w-8 h-8 rounded cursor-pointer border-0" value={uiConfig?.bg2 || '#6366f1'} onChange={e => updateUIConfig('bg2', e.target.value)} />
+                    <input className="glass-input flex-1" value={uiConfig?.bg2 || '#6366f1'} onChange={e => updateUIConfig('bg2', e.target.value)} />
+                  </div>
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <div className="flex-1">
+                  <label className="text-xs text-gray-500">弹窗圆角</label>
+                  <input type="range" min="0" max="30" value={uiConfig?.radius || 18} onChange={e => updateUIConfig('radius', parseInt(e.target.value))} className="w-full mt-1" />
+                  <span className="text-xs text-gray-400">{uiConfig?.radius || 18}px</span>
+                </div>
+                <div className="flex-1">
+                  <label className="text-xs text-gray-500">输入框圆角</label>
+                  <input type="range" min="0" max="20" value={uiConfig?.inputRadius || 10} onChange={e => updateUIConfig('inputRadius', parseInt(e.target.value))} className="w-full mt-1" />
+                  <span className="text-xs text-gray-400">{uiConfig?.inputRadius || 10}px</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* 成功弹窗 */}
+          <div>
+            <h4 className="text-xs font-semibold text-gray-600 mb-3">成功弹窗</h4>
+            <div className="space-y-2">
+              <div>
+                <label className="text-xs text-gray-500">标题文字</label>
+                <input className="glass-input w-full mt-1" value={uiConfig?.okTitle || ''} placeholder="验证成功" onChange={e => updateUIConfig('okTitle', e.target.value)} />
+              </div>
+              <div>
+                <label className="text-xs text-gray-500">副标题</label>
+                <input className="glass-input w-full mt-1" value={uiConfig?.okSub || ''} placeholder="功能已激活" onChange={e => updateUIConfig('okSub', e.target.value)} />
+              </div>
+              <div className="flex gap-2">
+                <div className="flex-1">
+                  <label className="text-xs text-gray-500">头部颜色</label>
+                  <div className="flex items-center gap-2 mt-1">
+                    <input type="color" className="w-8 h-8 rounded cursor-pointer border-0" value={uiConfig?.okBg || '#10b981'} onChange={e => updateUIConfig('okBg', e.target.value)} />
+                    <input className="glass-input flex-1" value={uiConfig?.okBg || '#10b981'} onChange={e => updateUIConfig('okBg', e.target.value)} />
+                  </div>
+                </div>
+                <div className="flex-1">
+                  <label className="text-xs text-gray-500">渐变颜色</label>
+                  <div className="flex items-center gap-2 mt-1">
+                    <input type="color" className="w-8 h-8 rounded cursor-pointer border-0" value={uiConfig?.okBg2 || '#059669'} onChange={e => updateUIConfig('okBg2', e.target.value)} />
+                    <input className="glass-input flex-1" value={uiConfig?.okBg2 || '#059669'} onChange={e => updateUIConfig('okBg2', e.target.value)} />
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* 预览 */}
+          <div>
+            <h4 className="text-xs font-semibold text-gray-600 mb-3">实时预览</h4>
+            <div className="border border-gray-200 rounded-xl overflow-hidden">
+              <div style={{ padding: '14px 12px', background: `linear-gradient(135deg, ${uiConfig?.bg || '#3b82f6'}, ${uiConfig?.bg2 || '#6366f1'})`, color: '#fff', textAlign: 'center', borderRadius: `${uiConfig?.radius || 18}px ${uiConfig?.radius || 18}px 0 0` }}>
+                <div style={{ fontSize: '13px', fontWeight: 700 }}>{uiConfig?.title || '卡密验证'}</div>
+                <div style={{ fontSize: '10px', opacity: 0.85 }}>{uiConfig?.subtitle || '请输入卡密以激活'}</div>
+              </div>
+              <div style={{ padding: '12px', background: '#fff' }}>
+                <div style={{ width: '100%', padding: '6px', border: '1px solid #d1d5db', borderRadius: `${uiConfig?.inputRadius || 10}px`, fontSize: '10px', textAlign: 'center', marginBottom: '8px' }}>请输入卡密</div>
+                <div style={{ width: '100%', padding: '6px', border: 'none', borderRadius: `${uiConfig?.inputRadius || 10}px`, fontSize: '11px', fontWeight: 'bold', textAlign: 'center', color: '#fff', background: `linear-gradient(135deg, ${uiConfig?.btnH || '#3b82f6'}, ${uiConfig?.btnH2 || '#6366f1'})` }}>{uiConfig?.btnText || '验证并激活'}</div>
+              </div>
+              <div style={{ padding: '14px 12px', background: `linear-gradient(135deg, ${uiConfig?.okBg || '#10b981'}, ${uiConfig?.okBg2 || '#059669'})`, color: '#fff', textAlign: 'center' }}>
+                <div style={{ fontSize: '13px', fontWeight: 700 }}>{uiConfig?.okTitle || '验证成功'}</div>
+                <div style={{ fontSize: '10px', opacity: 0.85 }}>{uiConfig?.okSub || '功能已激活'}</div>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Language Tabs */}

@@ -106,6 +106,20 @@ router.post('/:id/reset-device', async (req: Request, res: Response) => {
   }
 });
 
+// 管理员解绑
+router.post('/:id/unbind', async (req: Request, res: Response) => {
+  try {
+    const result = await cardService.adminUnbind(req.ctx!.userId, req.ctx!.role, req.params.id);
+    if (result.code === 0) {
+      success(res, result.data, result.message);
+    } else {
+      fail(res, result.code, result.message);
+    }
+  } catch (e) {
+    serverError(res);
+  }
+});
+
 // 导出卡密
 router.get('/export/:programId', async (req: Request, res: Response) => {
   try {

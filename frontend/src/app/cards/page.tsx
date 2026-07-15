@@ -191,6 +191,11 @@ export default function CardsPage() {
                   <span className="glass-tag" style={{color: statusMap[c.status]?.color || '#6b7280'}}>
                     {statusMap[c.status]?.label || c.status}
                   </span>
+                  {c.status === 'active' && c.endUserId && (
+                    <span className="ml-2 glass-tag" style={{color: '#f59e0b', fontSize: '10px'}}>
+                      解绑 {c.unbindCount || 0}/{c.unbindMax || 3}
+                    </span>
+                  )}
                 </td>
                 <td className="px-4 py-3 text-gray-500">{c.program?.name || '-'}</td>
                 <td className="px-4 py-3 text-gray-500">{c.endUser?.username || '-'}</td>
@@ -198,6 +203,14 @@ export default function CardsPage() {
                 <td className="px-4 py-3 text-gray-500 text-xs">{c.expiresAt ? new Date(c.expiresAt).toLocaleString() : '-'}</td>
                 <td className="px-4 py-3">
                   <button onClick={() => router.push(`/cards/${c.id}`)} className="text-blue-600 hover:text-blue-800 text-xs font-medium">详情</button>
+                  {c.status === 'active' && (
+                    <button onClick={async () => {
+                      if (!confirm('确定解绑该卡密？解绑后可在其他设备重新激活。')) return;
+                      const res = await cardApi.unbind(c.id);
+                      if (res.code === 0) { toast.success(res.message); fetchCards(); }
+                      else toast.error(res.message);
+                    }} className="text-orange-600 hover:text-orange-800 text-xs font-medium ml-2">解绑</button>
+                  )}
                 </td>
               </tr>
             ))}

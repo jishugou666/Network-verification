@@ -284,6 +284,39 @@ export async function getProgramIntegration(agentId: string, role: string, progr
   };
 }
 
+// ==================== UI 配置 ====================
+export async function getProgramUIConfig(agentId: string, role: string, programId: string) {
+  const where: any = { id: programId };
+  if (role !== 'root') {
+    where.agentId = agentId;
+  }
+
+  const program = await prisma.program.findUnique({ where, select: { id: true, uiConfig: true } });
+  if (!program) return { code: 404, message: '程序不存在或无权访问', data: null };
+
+  let config: any = null;
+  try { config = program.uiConfig ? JSON.parse(program.uiConfig) : null; } catch { config = null; }
+
+  return { code: 0, message: 'ok', data: config };
+}
+
+export async function updateProgramUIConfig(agentId: string, role: string, programId: string, config: any) {
+  const where: any = { id: programId };
+  if (role !== 'root') {
+    where.agentId = agentId;
+  }
+
+  const program = await prisma.program.findUnique({ where });
+  if (!program) return { code: 404, message: '程序不存在或无权操作', data: null };
+
+  await prisma.program.update({
+    where: { id: programId },
+    data: { uiConfig: JSON.stringify(config) },
+  });
+
+  return { code: 0, message: 'UI 配置已保存', data: config };
+}
+
 // ==================== 保存脚本代码 ====================
 export async function saveProgramScript(agentId: string, role: string, programId: string, scriptCode: string) {
   const where: any = { id: programId };
@@ -375,13 +408,13 @@ export async function obfuscateScript(code: string) {
     const header = headerMatch ? headerMatch[1] : '';
     const body = headerMatch ? code.slice(headerMatch[0].length) : code;
 
-    // 客户端模板只用轻量混淆（字符串编码+代码压缩），确保执行可靠性
-    // 标识符重命名会破坏 Promise 链和全局 API 引用，禁用
+    // 云端业务脚本使用高强度混淆（自包含代码，无跨作用域引用，安全可靠）
     const result = JavaScriptObfuscator.obfuscate(body, {
       compact: true,
-      controlFlowFlattening: false,
-      numbersToExpressions: false,
-      simplify: false,
+      controlFlowFlattening: true,
+      controlFlowFlatteningThreshold: 0.5,
+      numbersToExpressions: true,
+      simplify: true,
       stringArray: true,
       stringArrayEncoding: ['base64'],
       stringArrayThreshold: 0.5,
@@ -391,30 +424,9 @@ export async function obfuscateScript(code: string) {
       selfDefending: false,
       renameGlobals: false,
       target: 'browser',
-      identifierNamesGenerator: 'mangled',
-      reservedNames: [
-        'GM_setValue',
-        'GM_getValue',
-        'GM_deleteValue',
-        'GM_addStyle',
-        'GM_getResourceURL',
-        'GM_xmlhttpRequest',
-      ],
-      reservedStrings: [
-        'GM_setValue',
-        'GM_getValue',
-        'GM_deleteValue',
-        'cdk_ok',
-        'cdk-wrap',
-        'cdk-box',
-        'cdk-hd',
-        'cdk-bd',
-        'cdk-in',
-        'cdk-btn',
-        'cdk-err',
-        'cdk-cls',
-        'cdk-out',
-      ],
+      identifierNamesGenerator: 'hexadecimal',
+      reservedNames: [],
+      reservedStrings: [],
       domainLock: [],
     });
     const obfuscated = header + result.getObfuscatedCode();

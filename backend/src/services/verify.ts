@@ -383,6 +383,28 @@ export async function getEncryptedScript(appKey: string, userId: string, heartbe
   };
 }
 
+// ==================== 设备解绑 ====================
+export async function unbindDevice(appKey: string, userId: string, heartbeatToken: string) {
+  const program = await prisma.program.findUnique({ where: { appKey } });
+  if (!program) return { code: 404, message: 'AppKey 无效', data: null };
+  if (program.status === 'disabled') return { code: 2006, message: '程序已停用', data: null };
+
+  const token = await prisma.heartbeatToken.findUnique({ where: { token: heartbeatToken } });
+  if (!token || token.used || token.expiresAt < new Date()) return { code: 2008, message: 'Token 无效或已过期', data: null };
+  if (token.endUserId !== userId) return { code: 2008, message: 'Token 与用户不匹配', data: null };
+
+  const activeCard = await prisma.cardKey.findFirst({ where: { endUserId: userId, status: 'active' } });
+  if (!activeCard) return { code: 2011, message: '未找到绑定卡密', data: null };
+  if (activeCard.unbindCount >= activeCard.unbindMax) return { code: 2012, message: `解绑次数已达上限 (${activeCard.unbindMax}次)`, data: null };
+
+  await prisma.$transaction([
+    prisma.heartbeatToken.updateMany({ where: { endUserId: userId, used: false }, data: { used: true } }),
+    prisma.cardKey.update({ where: { id: activeCard.id }, data: { endUserId: null, status: 'inactive', activatedAt: null, expiresAt: null, unbindCount: { increment: 1 } } }),
+  ]);
+
+  return { code: 0, message: `解绑成功（已用 ${activeCard.unbindCount + 1}/${activeCard.unbindMax} 次）`, data: { used: activeCard.unbindCount + 1, max: activeCard.unbindMax } };
+}
+
 // ==================== 登出 ====================
 export async function logout(appKey: string, userId: string, ip: string) {
   const program = await prisma.program.findUnique({ where: { appKey } });
