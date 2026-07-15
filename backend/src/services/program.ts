@@ -302,7 +302,8 @@ export async function saveProgramScript(agentId: string, role: string, programId
   }
 
   const encrypted = aesEncrypt(trimmed);
-  const preview = trimmed.length > 256 ? trimmed.substring(0, 256) + '...' : trimmed;
+  const maxPreviewLen = 250;
+  const preview = trimmed.length > maxPreviewLen ? trimmed.substring(0, maxPreviewLen) + '...' : trimmed;
 
   await prisma.program.update({
     where: { id: programId },
