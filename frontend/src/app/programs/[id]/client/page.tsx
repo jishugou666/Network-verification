@@ -29,7 +29,7 @@ export default function ClientDownloadPage() {
 
   useEffect(() => {
     programApi.getLanguages().then(res => {
-      if (res.code === 0) setLanguages(res.data);
+      if (res.code === 0 && res.data) setLanguages(res.data);
     }).finally(() => setLoading(false));
   }, []);
 
@@ -42,7 +42,7 @@ export default function ClientDownloadPage() {
         appVersion: appVersion || undefined,
         appDescription: appDescription || undefined,
       });
-      if (res.code === 0) {
+      if (res.code === 0 && res.data) {
         setGeneratedCode(res.data.code);
         setFilename(res.data.filename);
         toast.success('代码生成成功');

@@ -17,6 +17,7 @@ export enum ErrorCode {
   TOO_MANY_REQUESTS = 429,
   INTERNAL_ERROR = 500,
   // 业务错误
+  INVALID_INPUT = 1000,
   INVALID_SIGNATURE = 1001,
   TIMESTAMP_EXPIRED = 1002,
   NONCE_REUSED = 1003,
@@ -84,6 +85,7 @@ export interface CreateProgramRequest {
   maxDevices?: number;
   allowReActivate?: boolean;
   heartbeatTimeout?: number;
+  announcement?: string;
 }
 
 export interface GenerateCardsRequest {

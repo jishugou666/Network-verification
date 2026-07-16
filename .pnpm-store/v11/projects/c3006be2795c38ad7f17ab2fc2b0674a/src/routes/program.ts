@@ -259,7 +259,7 @@ router.post('/:id/client', async (req: Request, res: Response) => {
       return;
     }
     const program = await programService.getProgramIntegration(req.ctx!.userId, req.ctx!.role, req.params.id);
-    if (program.code !== 0) {
+    if (program.code !== 0 || !program.data) {
       fail(res, program.code, program.message, 404);
       return;
     }
@@ -270,7 +270,7 @@ router.post('/:id/client', async (req: Request, res: Response) => {
       appVersion,
       appDescription,
     });
-    const meta = LANG_META[lang];
+    const meta = LANG_META[lang as keyof typeof LANG_META];
     success(res, { code, filename: `${appName || 'client'}${meta.ext}`, lang: meta.label });
   } catch (e: any) {
     console.error('[POST /:id/client]', e.message);
