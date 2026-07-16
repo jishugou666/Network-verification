@@ -49,25 +49,21 @@ function IPLocationMap({ ips }: { ips: string[] }) {
     const uniqueIps = [...new Set(ips.filter(ip => ip && ip !== '127.0.0.1' && ip !== '::1'))];
     if (uniqueIps.length === 0) { setLoading(false); return; }
 
-    Promise.all(
-      uniqueIps.map(ip =>
-        fetch(`https://ipapi.co/${ip}/json/`)
-          .then(r => r.json())
-          .then(d => ({
-            ip,
-            city: d.city || '-',
-            region: d.region || '-',
-            country: d.country_name || '-',
-            lat: d.latitude || 0,
-            lon: d.longitude || 0,
-          }))
-          .catch(() => ({ ip, city: '-', region: '-', country: '-', lat: 0, lon: 0 }))
-      )
-    ).then(results => {
-      const valid = results.filter(l => l.lat !== 0 && l.lon !== 0);
-      setLocations(valid);
-      setLoading(false);
-    });
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
+    fetch(`${apiUrl}/geoip`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ips: uniqueIps }),
+    })
+      .then(r => r.json())
+      .then(res => {
+        if (res.code === 0 && res.data) {
+          const valid = res.data.filter((l: IPLocation) => l.lat !== 0 && l.lon !== 0);
+          setLocations(valid);
+        }
+        setLoading(false);
+      })
+      .catch(() => setLoading(false));
   }, [ips]);
 
   // 初始化 Leaflet 地图

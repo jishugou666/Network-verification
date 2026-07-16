@@ -10,6 +10,9 @@ import userRoutes from './routes/user';
 validateProductionConfig();
 const app = express();
 
+// 信任反向代理（Render 等云平台必须设置，否则 X-Forwarded-For 不生效）
+app.set('trust proxy', true);
+
 // ==================== 全局中间件 ====================
 
 // CORS
@@ -46,6 +49,40 @@ app.use('/api/client', verifyRoutes);
 
 // 用户管理 + 仪表盘 + 代理管理
 app.use('/api', userRoutes);
+
+// IP 地理位置查询（代理到 ip-api.com，免费且对中国 IP 精确度更高）
+app.post('/api/geoip', async (req, res) => {
+  try {
+    const { ips } = req.body;
+    if (!Array.isArray(ips) || ips.length === 0) {
+      res.json({ code: 400, message: '请提供 IP 列表', data: null });
+      return;
+    }
+    const results = await Promise.all(
+      ips.map(async (ip: string) => {
+        try {
+          const resp = await fetch(`http://ip-api.com/json/${encodeURIComponent(ip)}?fields=country,countryCode,regionName,city,lat,lon,query&lang=zh-CN`);
+          const data = await resp.json();
+          return {
+            ip: data.query || ip,
+            country: data.country || '-',
+            countryCode: data.countryCode || '-',
+            region: data.regionName || '-',
+            city: data.city || '-',
+            lat: data.lat || 0,
+            lon: data.lon || 0,
+          };
+        } catch {
+          return { ip, country: '-', countryCode: '-', region: '-', city: '-', lat: 0, lon: 0 };
+        }
+      })
+    );
+    res.json({ code: 0, message: 'ok', data: results });
+  } catch (e: any) {
+    console.error('[geoip]', e.message);
+    res.status(500).json({ code: 500, message: '服务器错误', data: null });
+  }
+});
 
 // ==================== 全局错误处理 ====================
 // 禁止暴露服务端堆栈
