@@ -159,9 +159,13 @@ export async function listCards(
     data: {
       cards: cards.map(c => {
         const { cardPlainEncrypted, ...rest } = c;
+        // 后端截断 username，只返回前 3 字符 + 摘要（前端无法获取完整值）
+        const fullUsername = c.endUser?.username || null;
+        const maskedUsername = fullUsername ? fullUsername.slice(0, 3) : null;
         return {
           ...rest,
           cardPlain: cardPlainEncrypted ? aesDecrypt(cardPlainEncrypted) : null,
+          endUser: fullUsername ? { username: maskedUsername, usernameFull: fullUsername } : null,
         };
       }),
       total,
