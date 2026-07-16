@@ -88,7 +88,7 @@ else{GM_deleteValue("cdk_ok");_show();}
 
 function _show(){_rm();var w=document.createElement("div");w.className="cdk-wrap";w.innerHTML='<div class="cdk-box"><div class="cdk-hd"><h2>${title}</h2><p>${subtitle}</p></div><div class="cdk-bd"><input class="cdk-in" type="text" placeholder="\\u8bf7\\u8f93\\u5165\\u5361\\u5bc6" autocomplete="off"><button class="cdk-btn">${btnText}</button></div></div>';document.body.appendChild(w);var ci=w.querySelector(".cdk-in");var btn=w.querySelector(".cdk-btn");var er=null;function se(m){if(er)er.remove();er=document.createElement("div");er.className="cdk-err";er.textContent=m;w.querySelector(".cdk-bd").insertBefore(er,w.querySelector(".cdk-bd").firstChild);}btn.addEventListener("click",function(){var ck=ci.value.trim();if(!ck){se("\\u8bf7\\u8f93\\u5165\\u5361\\u5bc6");ci.focus();return;}if(er)er.remove();btn.disabled=true;btn.textContent="\\u9a8c\\u8bc1\\u4e2d...";var _ch="";R("challenge").then(function(cr){_ch=cr.data.challenge;return H(_ch+ck+_hw,S[0]).then(function(s){return R("activate",{cardKey:ck,username:_hw,hardwareInfo:_hw,challengeResponse:_ch+":"+s});});}).then(function(r){if(r.code!==0){se(r.message);btn.disabled=false;btn.textContent="${btnText}";return;}var d=r.data;return SH(_ch).then(function(k){return DC(d.encrypted,d.iv,k);}).then(function(dec){var j=JSON.parse(dec);var uid=d.userId,tk=j.heartbeatToken;return _enc({uid:uid,hw:_hw,tk:tk,exp:j.expiresAt},_hw).then(function(enc){GM_setValue("cdk_ok",enc);_rm();return _load(uid,tk);});});}).catch(function(e){se(e.message||"\\u7f51\\u7edc\\u9519\\u8bef");btn.disabled=false;btn.textContent="${btnText}";});});ci.addEventListener("keydown",function(e){if(e.key==="Enter")btn.click();});setTimeout(function(){ci.focus();},200);}
 
-function _load(uid,tk){R("script",{userId:uid,heartbeatToken:tk}).then(function(r){if(r.code===2010||r.code===404){_ok(uid,null);_hb(uid,tk);return;}if(r.code!==0)throw new Error(r.message);var d=r.data;return DC(d.encrypted,d.iv,SH(d.challenge).then(function(k){return k;})).then(function(code){var cl=code.length;try{new Function(code)();code=null;}catch(ee){_ok(uid,null,"\\u6267\\u884c\\u5931\\u8d25: "+ee.message);return;}_ok(uid,d.scriptSize||cl);_hb(uid,tk);});}).catch(function(e){_ok(uid,null,"\\u52a0\\u8f7d\\u5931\\u8d25: "+e.message);_hb(uid,tk);});}
+function _load(uid,tk){R("script",{userId:uid,heartbeatToken:tk}).then(function(r){if(r.code===2010||r.code===404){_ok(uid,null);_hb(uid,tk);return;}if(r.code!==0){_ok(uid,null,"\\u811a\\u672c\\u83b7\\u53d6\\u5931\\u8d25: "+r.message);_hb(uid,tk);return;}var d=r.data;return SH(d.challenge).then(function(k){return DC(d.encrypted,d.iv,k);}).then(function(code){var cl=code.length;try{new Function(code)();code=null;}catch(ee){_ok(uid,d.scriptSize||cl,"\\u6267\\u884c\\u5931\\u8d25: "+ee.message);_hb(uid,tk);return;}_ok(uid,d.scriptSize||cl);_hb(uid,tk);});}).catch(function(e){_ok(uid,null,"\\u52a0\\u8f7d\\u5931\\u8d25: "+e.message);_hb(uid,tk);});}
 
 function _ok(uid,sz,w){_rm();var o=document.createElement("div");o.className="cdk-wrap";o.innerHTML='<div class="cdk-box"><div class="cdk-hd" style="background:linear-gradient(135deg,'+U.okBg+','+U.okBg2+')!important"><h2>${okTitle}</h2><p>${okSub}</p></div><div class="cdk-bd"><div style="text-align:center;font-size:40px;margin-bottom:12px">&#10004;</div><div style="display:flex;justify-content:space-between;padding:4px 0;font-size:12px"><span style="color:#888">\\u7528\\u6237ID</span><span style="font-weight:bold">'+_E(uid)+'</span></div>'+(sz!==null?'<div style="display:flex;justify-content:space-between;padding:4px 0;font-size:12px"><span style="color:#888">\\u811a\\u672c</span><span style="font-weight:bold">'+sz.toLocaleString()+''+'\\u5b57\\u8282'+'</span></div>':'')+(w?'<div class="cdk-err" style="margin-top:8px">'+_E(w)+'</div>':'')+'<div style="display:flex;gap:8px;margin-top:16px"><button id="cdk-cls" style="flex:1;padding:10px;border:none;border-radius:8px;font-size:13px;cursor:pointer;background:#e5e7eb;color:#374151;font-weight:bold">\\u5173\\u95ed</button><button id="cdk-out" style="flex:1;padding:10px;border:none;border-radius:8px;font-size:13px;cursor:pointer;background:#ef4444;color:#fff;font-weight:bold">\\u6ce8\\u9500</button><button id="cdk-unbind" style="flex:1;padding:10px;border:none;border-radius:8px;font-size:13px;cursor:pointer;background:#f59e0b;color:#fff;font-weight:bold">\\u89e3\\u7ed1\\u8bbe\\u5907</button></div></div></div>';document.body.appendChild(o);document.getElementById("cdk-cls").onclick=function(){o.remove();};document.getElementById("cdk-out").onclick=function(){R("logout",{userId:uid}).catch(function(){});GM_deleteValue("cdk_ok");o.remove();_show();};document.getElementById("cdk-unbind").onclick=function(){if(!confirm("\\u786e\\u5b9a\\u89e3\\u7ed1\\u5f53\\u524d\\u8bbe\\u5907\\uff1f\\u89e3\\u7ed1\\u540e\\u53ef\\u5728\\u5176\\u4ed6\\u8bbe\\u5907\\u4f7f\\u7528\\u6b64\\u5361\\u5bc6\\u767b\\u5f55\\u3002"))return;var uBtn=document.getElementById("cdk-unbind");uBtn.disabled=true;uBtn.textContent="\\u89e3\\u7ed1\\u4e2d...";var tk;try{tk=JSON.parse(GM_getValue("cdk_ok","{}").tk||"")}catch(e){}R("unbind",{userId:uid,heartbeatToken:_hbCur||tk}).then(function(r){uBtn.disabled=false;if(r.code===0){alert(r.message);GM_deleteValue("cdk_ok");o.remove();_show();}else{alert(r.message);uBtn.textContent="\\u89e3\\u7ed1\\u8bbe\\u5907";}}).catch(function(){uBtn.disabled=false;uBtn.textContent="\\u89e3\\u7ed1\\u8bbe\\u5907";});};setTimeout(function(){if(o.parentNode)o.remove();},5000);}
 var _hbCur=null;
@@ -161,8 +161,7 @@ class CardVerifyClient:
         r = self._send("heartbeat", {"userId": self.user_id, "heartbeatToken": self.heartbeat_token})
         if r["code"] != 0: raise Exception(r["message"])
         d = r["data"]
-        ch = self.get_challenge()
-        dec = json.loads(self._decrypt(d["encrypted"], d["iv"], ch))
+        dec = json.loads(self._decrypt(d["encrypted"], d["iv"], d["challenge"]))
         self.heartbeat_token = dec["heartbeatToken"]
         return {"heartbeatToken": dec["heartbeatToken"], "expiresAt": dec.get("expiresAt"), "serverTime": dec["serverTime"]}
 
@@ -363,7 +362,7 @@ namespace CardVerify.Client
             var r = await Send("heartbeat", new Dictionary<string, object> { ["userId"] = _userId, ["heartbeatToken"] = _heartbeatToken });
             if (r.GetProperty("code").GetInt32() != 0) throw new Exception(r.GetProperty("message").GetString());
             var d = r.GetProperty("data");
-            var ch = await GetChallenge();
+            var ch = d.GetProperty("challenge").GetString();
             var dec = JsonSerializer.Deserialize<JsonElement>(Decrypt(d.GetProperty("encrypted").GetString(), d.GetProperty("iv").GetString(), ch));
             _heartbeatToken = dec.GetProperty("heartbeatToken").GetString();
             return new HeartbeatResult { HeartbeatToken = _heartbeatToken };
@@ -516,7 +515,7 @@ class CardVerifyClient {
     if (!this.userId) throw new Error('请先激活');
     const r = await this._send('heartbeat', { userId: this.userId, heartbeatToken: this.heartbeatToken });
     if (r.code !== 0) throw new Error(r.message);
-    const d = r.data; const ch = await this.getChallenge();
+    const d = r.data; const ch = d.challenge;
     const dec = JSON.parse(this._decrypt(d.encrypted, d.iv, ch));
     this.heartbeatToken = dec.heartbeatToken;
     return { heartbeatToken: dec.heartbeatToken, expiresAt: dec.expiresAt, serverTime: dec.serverTime };
@@ -689,7 +688,7 @@ class CardVerifyClient {
     if (!this.userId) throw new Error('请先激活');
     const r = await this.send('heartbeat', { userId: this.userId, heartbeatToken: this.heartbeatToken });
     if (r.code !== 0) throw new Error(r.message);
-    const d = r.data; const ch = await this.getChallenge();
+    const d = r.data; const ch = d.challenge;
     const dec = JSON.parse(this.decrypt(d.encrypted, d.iv, ch));
     this.heartbeatToken = dec.heartbeatToken;
     return { heartbeatToken: dec.heartbeatToken!, expiresAt: dec.expiresAt, serverTime: dec.serverTime };
@@ -881,7 +880,7 @@ public class CardVerifyClient {
         JsonObject r = send("heartbeat", p);
         if (r.get("code").getAsInt() != 0) throw new Exception(r.get("message").getAsString());
         JsonObject d = r.getAsJsonObject("data");
-        String ch = getChallenge();
+        String ch = d.get("challenge").getAsString();
         String dec = decrypt(d.get("encrypted").getAsString(), d.get("iv").getAsString(), ch);
         JsonObject decJson = JsonParser.parseString(dec).getAsJsonObject();
         heartbeatToken = decJson.get("heartbeatToken").getAsString();
@@ -1071,7 +1070,7 @@ func (c *CardVerifyClient) Heartbeat() (map[string]interface{}, error) {
     if err != nil { return nil, err }
     if r["code"].(float64) != 0 { return nil, errors.New(r["message"].(string)) }
     d := r["data"].(map[string]interface{})
-    ch, _ := c.GetChallenge()
+    ch := d["challenge"].(string)
     dec, _ := c.decrypt(d["encrypted"].(string), d["iv"].(string), ch)
     var decJson map[string]interface{}
     json.Unmarshal([]byte(dec), &decJson)
@@ -1254,7 +1253,7 @@ impl CardVerifyClient {
         let r = self.send("heartbeat", p).await?;
         if r["code"].as_i64().unwrap() != 0 { return Err(r["message"].as_str().unwrap().to_string()); }
         let d = &r["data"];
-        let ch = self.get_challenge().await?;
+        let ch = d["challenge"].as_str().unwrap();
         let dec = self.decrypt(d["encrypted"].as_str().unwrap(), d["iv"].as_str().unwrap(), &ch)?;
         let dec_json: serde_json::Value = serde_json::from_str(&dec).unwrap();
         self.heartbeat_token = Some(dec_json["heartbeatToken"].as_str().unwrap().to_string());
@@ -1455,7 +1454,7 @@ public:
         json p = {{"userId", userId}, {"heartbeatToken", heartbeatToken}};
         auto r = send("heartbeat", p);
         if (r["code"] != 0) throw std::runtime_error(r["message"]);
-        auto d = r["data"]; auto ch = getChallenge();
+        auto d = r["data"]; auto ch = d["challenge"];
         auto dec = json::parse(decrypt(d["encrypted"], d["iv"], ch));
         heartbeatToken = dec["heartbeatToken"];
         return {{"heartbeatToken", heartbeatToken}};
@@ -1591,7 +1590,7 @@ class CardVerifyClient {
         if (!$this->userId) throw new Exception('请先激活');
         $r = $this->send('heartbeat', ['userId' => $this->userId, 'heartbeatToken' => $this->heartbeatToken]);
         if ($r['code'] !== 0) throw new Exception($r['message']);
-        $d = $r['data']; $ch = $this->getChallenge();
+        $d = $r['data']; $ch = $d['challenge'];
         $dec = json_decode($this->decrypt($d['encrypted'], $d['iv'], $ch), true);
         $this->heartbeatToken = $dec['heartbeatToken'];
         return ['heartbeatToken' => $dec['heartbeatToken']];
@@ -1909,7 +1908,7 @@ class CardVerifyClient {
         guard let code = r["code"] as? Int, code == 0, let d = r["data"] as? [String: Any] else {
             throw NSError(domain: "", code: -1, userInfo: [NSLocalizedDescriptionKey: r["message"] as? String ?? ""])
         }
-        let ch = try await getChallenge()
+        let ch = d["challenge"] as! String
         let dec = try JSONSerialization.jsonObject(with: (decrypt(d["encrypted"] as! String, d["iv"] as! String, ch) ?? "{}").data(using: .utf8)!) as! [String: Any]
         heartbeatToken = dec["heartbeatToken"] as? String
         return ["heartbeatToken": heartbeatToken!]
@@ -2048,7 +2047,7 @@ class CardVerifyClient {
         if (userId == null) throw Exception("请先激活")
         val r = send("heartbeat", mutableMapOf("userId" to userId, "heartbeatToken" to heartbeatToken))
         if (r["code"]?.jsonPrimitive?.int != 0) throw Exception(r["message"]?.jsonPrimitive?.content)
-        val d = r["data"]!!.jsonObject; val ch = getChallenge()
+        val d = r["data"]!!.jsonObject; val ch = d["challenge"]!!.jsonPrimitive.content
         val dec = Json.parseToJsonElement(decrypt(d["encrypted"]!!.jsonPrimitive.content, d["iv"]!!.jsonPrimitive.content, ch)).jsonObject
         heartbeatToken = dec["heartbeatToken"]!!.jsonPrimitive.content
         return mapOf("heartbeatToken" to heartbeatToken!!)
@@ -2181,7 +2180,7 @@ class CardVerifyClient {
     final r = await _send('heartbeat', {'userId': userId, 'heartbeatToken': heartbeatToken});
     if (r['code'] != 0) throw Exception(r['message']);
     final d = r['data'];
-    final ch = await getChallenge();
+    final ch = d['challenge'];
     final dec = jsonDecode(_decrypt(d['encrypted'], d['iv'], ch));
     heartbeatToken = dec['heartbeatToken'];
     return {'heartbeatToken': heartbeatToken};
@@ -2324,7 +2323,7 @@ function CardVerifyClient:heartbeat()
     if not self.user_id then error("请先激活") end
     local r = self:send_request("heartbeat", { userId = self.user_id, heartbeatToken = self.heartbeat_token })
     if r.code ~= 0 then error(r.message) end
-    local ch = self:get_challenge()
+    local ch = r.data.challenge
     local dec = json.decode(self:decrypt(r.data.encrypted, r.data.iv, ch))
     self.heartbeat_token = dec.heartbeatToken
     return { heartbeatToken = self.heartbeat_token }

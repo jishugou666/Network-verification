@@ -193,8 +193,7 @@
       try {
         var r = await send('heartbeat', { userId: uid, heartbeatToken: t });
         if (r.code !== 0) { GM_deleteValue('cdk_ok'); return; }
-        var c = (await send('challenge')).data.challenge;
-        var d = JSON.parse(await decrypt(r.data.encrypted, r.data.iv, await sha256(c)));
+        var d = JSON.parse(await decrypt(r.data.encrypted, r.data.iv, await sha256(r.data.challenge)));
         t = d.heartbeatToken;
         var s = GM_getValue('cdk_ok', {});
         s.tk = t; GM_setValue('cdk_ok', s);
