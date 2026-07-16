@@ -3,6 +3,7 @@ import { authMiddleware, requireRole } from '../middleware/auth';
 import { rateLimitMiddleware } from '../middleware/rateLimit';
 import * as authService from '../services/auth';
 import { success, fail, serverError } from '../utils/response';
+import { getClientIp } from '../utils/network';
 import { ErrorCode } from '../types';
 
 const router = Router();
@@ -23,7 +24,7 @@ router.post('/login', rateLimitMiddleware, async (req: Request, res: Response) =
       fail(res, ErrorCode.BAD_REQUEST, '密码格式无效');
       return;
     }
-    const ip = (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() || req.socket.remoteAddress || 'unknown';
+    const ip = getClientIp(req);
     const result = await authService.login(username, password, ip);
     if (result.code === 0) {
       success(res, result.data, result.message);

@@ -44,6 +44,44 @@ router.get('/', async (req: Request, res: Response) => {
   }
 });
 
+// ===== 静态路由（必须在 :id 之前） =====
+
+// 代码混淆
+router.post('/obfuscate', async (req: Request, res: Response) => {
+  try {
+    const { code } = req.body;
+    if (!code || typeof code !== 'string') {
+      fail(res, ErrorCode.INVALID_INPUT, 'code 不能为空');
+      return;
+    }
+    const result = await programService.obfuscateScript(code);
+    if (result.code === 0) {
+      success(res, result.data, result.message);
+    } else {
+      fail(res, result.code, result.message, 400);
+    }
+  } catch (e: any) {
+    console.error('[POST /api/programs/obfuscate]', e.message);
+    serverError(res);
+  }
+});
+
+// 获取支持的语言列表
+router.get('/languages', (_req: Request, res: Response) => {
+  try {
+    const langs = CLIENT_LANGUAGES.map(lang => ({
+      id: lang,
+      ...LANG_META[lang],
+    }));
+    success(res, langs);
+  } catch (e: any) {
+    console.error('[GET /languages]', e.message);
+    serverError(res);
+  }
+});
+
+// ===== 参数化路由 =====
+
 // 程序详情
 router.get('/:id', async (req: Request, res: Response) => {
   try {
@@ -212,40 +250,6 @@ router.put('/:id/announcement', async (req: Request, res: Response) => {
     }
   } catch (e: any) {
     console.error('[PUT /:id/announcement]', e.message);
-    serverError(res);
-  }
-});
-
-// 混淆脚本代码
-router.post('/obfuscate', async (req: Request, res: Response) => {
-  try {
-    const { code } = req.body;
-    if (!code || typeof code !== 'string' || !code.trim()) {
-      fail(res, ErrorCode.BAD_REQUEST, '代码不能为空');
-      return;
-    }
-    const result = await programService.obfuscateScript(code);
-    if (result.code === 0) {
-      success(res, result.data, result.message);
-    } else {
-      fail(res, result.code, result.message, 400);
-    }
-  } catch (e: any) {
-    console.error('[POST /api/programs/obfuscate]', e.message);
-    serverError(res);
-  }
-});
-
-// 获取支持的语言列表
-router.get('/languages', (_req: Request, res: Response) => {
-  try {
-    const langs = CLIENT_LANGUAGES.map(lang => ({
-      id: lang,
-      ...LANG_META[lang],
-    }));
-    success(res, langs);
-  } catch (e: any) {
-    console.error('[GET /languages]', e.message);
     serverError(res);
   }
 });

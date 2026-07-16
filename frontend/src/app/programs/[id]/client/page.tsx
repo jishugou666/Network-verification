@@ -29,7 +29,9 @@ export default function ClientDownloadPage() {
 
   useEffect(() => {
     programApi.getLanguages().then(res => {
-      if (res.code === 0 && res.data) setLanguages(res.data);
+      if (res.code === 0 && Array.isArray(res.data)) setLanguages(res.data);
+    }).catch(() => {
+      toast.error('加载语言列表失败');
     }).finally(() => setLoading(false));
   }, []);
 
@@ -182,23 +184,29 @@ cargo build --release`}
       {/* 语言选择 */}
       <div className="glass p-6">
         <h2 className="text-lg font-semibold mb-4 text-gray-800">选择语言</h2>
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 lg:grid-cols-7 gap-2 mb-4">
-          {languages.map(lang => (
-            <button
-              key={lang.id}
-              onClick={() => { setSelectedLang(lang.id); setGeneratedCode(''); }}
-              className={`flex items-center gap-2 px-3 py-2.5 rounded-xl text-sm font-medium transition-all border ${
-                selectedLang === lang.id
-                  ? 'bg-blue-50 border-blue-300 text-blue-700 shadow-sm'
-                  : 'bg-white border-gray-200 text-gray-600 hover:border-gray-300 hover:bg-gray-50'
-              }`}
-            >
-              <span className="text-base">{lang.icon}</span>
-              <span>{lang.label}</span>
-              <span className="text-xs text-gray-400 ml-auto">{lang.ext}</span>
-            </button>
-          ))}
-        </div>
+        {languages.length === 0 ? (
+          <div className="mb-4 p-4 bg-yellow-50 border border-yellow-200 rounded-xl text-sm text-yellow-700">
+            语言列表加载失败，请确认后端已部署最新版本。可尝试刷新页面重试。
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 lg:grid-cols-7 gap-2 mb-4">
+            {languages.map(lang => (
+              <button
+                key={lang.id}
+                onClick={() => { setSelectedLang(lang.id); setGeneratedCode(''); }}
+                className={`flex items-center gap-2 px-3 py-2.5 rounded-xl text-sm font-medium transition-all border ${
+                  selectedLang === lang.id
+                    ? 'bg-blue-50 border-blue-300 text-blue-700 shadow-sm'
+                    : 'bg-white border-gray-200 text-gray-600 hover:border-gray-300 hover:bg-gray-50'
+                }`}
+              >
+                <span className="text-base">{lang.icon}</span>
+                <span>{lang.label}</span>
+                <span className="text-xs text-gray-400 ml-auto">{lang.ext}</span>
+              </button>
+            ))}
+          </div>
+        )}
 
         <button
           onClick={handleGenerate}

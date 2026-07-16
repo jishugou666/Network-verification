@@ -3,6 +3,7 @@ import { PrismaClient } from '@prisma/client';
 import { config } from '../config';
 import { ErrorCode } from '../types';
 import { fail } from '../utils/response';
+import { getClientIp } from '../utils/network';
 import crypto from 'crypto';
 
 const prisma = new PrismaClient();
@@ -106,14 +107,6 @@ function checkMemLimit(key: string): boolean {
   }
   record.count++;
   return record.count > config.rateLimitPerMinute;
-}
-
-/** 获取客户端真实 IP */
-function getClientIp(req: Request): string {
-  return (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim()
-    || req.headers['x-real-ip'] as string
-    || req.socket.remoteAddress
-    || '127.0.0.1';
 }
 
 // Nonce.appKey 最多 64 字符；用固定长度散列保存限流 key，避免泄漏或截断 IP

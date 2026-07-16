@@ -3,6 +3,7 @@ import { signatureMiddleware, cleanupExpiredNonces } from '../middleware/signatu
 import { rateLimitMiddleware } from '../middleware/rateLimit';
 import * as verifyService from '../services/verify';
 import { success, fail, serverError } from '../utils/response';
+import { getClientIp } from '../utils/network';
 import { ErrorCode } from '../types';
 
 const router = Router();
@@ -39,7 +40,7 @@ router.post('/activate', signatureMiddleware, async (req: Request, res: Response
       fail(res, ErrorCode.BAD_REQUEST, '缺少必要参数');
       return;
     }
-    const ip = (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() || req.socket.remoteAddress || 'unknown';
+    const ip = getClientIp(req);
     const result = await verifyService.activateCard(appKey, cardKey, username, hardwareInfo, challengeResponse, ip);
     await cleanupExpiredNonces();
     if (result.code === 0) {
@@ -62,7 +63,7 @@ router.post('/heartbeat', signatureMiddleware, async (req: Request, res: Respons
       fail(res, ErrorCode.BAD_REQUEST, '缺少必要参数');
       return;
     }
-    const ip = (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() || req.socket.remoteAddress || 'unknown';
+    const ip = getClientIp(req);
     const result = await verifyService.heartbeat(appKey, userId, heartbeatToken, ip);
     await cleanupExpiredNonces();
     if (result.code === 0) {
@@ -129,7 +130,7 @@ router.post('/logout', signatureMiddleware, async (req: Request, res: Response) 
       fail(res, ErrorCode.BAD_REQUEST, '缺少必要参数');
       return;
     }
-    const ip = (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() || req.socket.remoteAddress || 'unknown';
+    const ip = getClientIp(req);
     const result = await verifyService.logout(appKey, userId, ip);
     await cleanupExpiredNonces();
     if (result.code === 0) {
