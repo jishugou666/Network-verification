@@ -27,8 +27,7 @@ type Lang = (typeof LANGUAGES)[number];
 
 function getClientScriptTemplate(appKey: string, appSecret: string, apiBase: string, uiConfig?: any): string {
   const base = apiBase.replace(/\/api$/, '');
-  
-  // 从配置或默认值提取UI参数
+
   const cfg = uiConfig || {};
   const bg = cfg.bg || '#3b82f6';
   const bg2 = cfg.bg2 || '#6366f1';
@@ -39,8 +38,6 @@ function getClientScriptTemplate(appKey: string, appSecret: string, apiBase: str
   const inputRadius = cfg.inputRadius || 10;
   const btnH = cfg.btnH || '#3b82f6';
   const btnH2 = cfg.btnH2 || '#6366f1';
-  
-  // 成功浮层颜色
   const okBg = cfg.okBg || '#10b981';
   const okBg2 = cfg.okBg2 || '#059669';
   const okTitle = cfg.okTitle ? ('\\u' + [...cfg.okTitle].map(c => c.charCodeAt(0).toString(16).padStart(4,'0')).join('\\u')) : '\\u9a8c\\u8bc1\\u6210\\u529f';
@@ -49,8 +46,8 @@ function getClientScriptTemplate(appKey: string, appSecret: string, apiBase: str
   return `// ==UserScript==
 // @name         CDK 卡密验证
 // @namespace    https://cdk.lat
-// @version      5.0
-// @description  安全卡密验证+解绑
+// @version      6.0
+// @description  安全卡密验证+解绑+脚本下发
 // @author       CDK
 // @match        *://*/*
 // @grant        GM_setValue
@@ -59,43 +56,340 @@ function getClientScriptTemplate(appKey: string, appSecret: string, apiBase: str
 // @run-at       document-end
 // ==/UserScript==
 
-(function(){
-var K=["${appKey}"];var S=["${appSecret}"];var A="${base}";
+(function() {
+  "use strict";
 
-var U={bg:"${bg}",bg2:"${bg2}",radius:${radius},iradius:${inputRadius},btnH:"${btnH}",btnH2:"${btnH2}",okBg:"${okBg}",okBg2:"${okBg2}"};
+  // ===== 配置 =====
+  var AK = "${appKey}";
+  var AS = "${appSecret}";
+  var API = "${base}";
 
-var css='.cdk-wrap{position:fixed!important;top:0!important;left:0!important;right:0!important;bottom:0!important;z-index:2147483647!important;background:rgba(0,0,0,0.6)!important;display:flex!important;align-items:center!important;justify-content:center!important}.cdk-box{background:#fff!important;border-radius:'+U.radius+'px!important;width:360px!important;max-width:90vw!important;overflow:hidden!important;box-shadow:0 20px 50px rgba(0,0,0,0.4)!important;font-family:Arial,sans-serif!important}.cdk-hd{padding:26px 20px!important;background:linear-gradient(135deg,'+U.bg+','+U.bg2+')!important;color:#fff!important;text-align:center!important}.cdk-hd h2{margin:0!important;font-size:19px!important}.cdk-hd p{margin:4px 0 0!important;font-size:12px!important;opacity:0.85!important}.cdk-bd{padding:24px 20px!important}.cdk-bd input{width:100%!important;padding:12px!important;border:1.5px solid #d1d5db!important;border-radius:'+U.iradius+'px!important;font-size:14px!important;outline:none!important;box-sizing:border-box!important;margin-bottom:14px!important;text-align:center!important}.cdk-bd button{width:100%!important;padding:12px!important;border:none!important;border-radius:'+U.iradius+'px!important;font-size:15px!important;font-weight:bold!important;cursor:pointer!important;color:#fff!important;background:linear-gradient(135deg,'+U.btnH+','+U.btnH2+')!important}.cdk-bd button:disabled{opacity:0.6!important;cursor:not-allowed!important}.cdk-err{background:#fee2e2!important;color:#dc2626!important;padding:10px 14px!important;border-radius:8px!important;font-size:12px!important;margin-bottom:14px!important;text-align:center!important}';
-var d=document.createElement('style');d.textContent=css;document.head.appendChild(d);
+  // ===== UI 参数 =====
+  var U = {
+    bg: "${bg}", bg2: "${bg2}", radius: ${radius}, iradius: ${inputRadius},
+    btnH: "${btnH}", btnH2: "${btnH2}", okBg: "${okBg}", okBg2: "${okBg2}"
+  };
 
-var _safe=true;
-try{if(typeof crypto.subtle.importKey!=="function")_safe=false;}catch(e){}
-try{if(typeof GM_setValue!=="function")_safe=false;}catch(e){}
-try{if(typeof GM_getValue!=="function")_safe=false;}catch(e){}
-if(!_safe){GM_deleteValue("cdk_ok");location.reload();}
+  // ===== 注入样式 =====
+  var css = '.cdk-wrap{position:fixed!important;top:0!important;left:0!important;right:0!important;bottom:0!important;z-index:2147483647!important;background:rgba(0,0,0,0.6)!important;display:flex!important;align-items:center!important;justify-content:center!important}.cdk-box{background:#fff!important;border-radius:'+U.radius+'px!important;width:360px!important;max-width:90vw!important;overflow:hidden!important;box-shadow:0 20px 50px rgba(0,0,0,0.4)!important;font-family:Arial,sans-serif!important}.cdk-hd{padding:26px 20px!important;background:linear-gradient(135deg,'+U.bg+','+U.bg2+')!important;color:#fff!important;text-align:center!important}.cdk-hd h2{margin:0!important;font-size:19px!important}.cdk-hd p{margin:4px 0 0!important;font-size:12px!important;opacity:0.85!important}.cdk-bd{padding:24px 20px!important}.cdk-bd input{width:100%!important;padding:12px!important;border:1.5px solid #d1d5db!important;border-radius:'+U.iradius+'px!important;font-size:14px!important;outline:none!important;box-sizing:border-box!important;margin-bottom:14px!important;text-align:center!important}.cdk-bd button{width:100%!important;padding:12px!important;border:none!important;border-radius:'+U.iradius+'px!important;font-size:15px!important;font-weight:bold!important;cursor:pointer!important;color:#fff!important;background:linear-gradient(135deg,'+U.btnH+','+U.btnH2+')!important}.cdk-bd button:disabled{opacity:0.6!important;cursor:not-allowed!important}.cdk-err{background:#fee2e2!important;color:#dc2626!important;padding:10px 14px!important;border-radius:8px!important;font-size:12px!important;margin-bottom:14px!important;text-align:center!important}';
+  var st = document.createElement('style'); st.textContent = css; document.head.appendChild(st);
 
-function H(d,k){return crypto.subtle.importKey("raw",new TextEncoder().encode(k),{name:"HMAC",hash:"SHA-256"},false,["sign"]).then(function(ky){return crypto.subtle.sign("HMAC",ky,new TextEncoder().encode(d));}).then(function(s){return Array.from(new Uint8Array(s)).map(function(b){return b.toString(16).padStart(2,"0");}).join("");});}
-function SH(d){return crypto.subtle.digest("SHA-256",new TextEncoder().encode(d)).then(function(h){return new Uint8Array(h);});}
-function DC(e,i,k){var ib=Uint8Array.from(atob(i),function(c){return c.charCodeAt(0);});var eb=Uint8Array.from(atob(e),function(c){return c.charCodeAt(0);});return crypto.subtle.importKey("raw",k,{name:"AES-CBC"},false,["decrypt"]).then(function(ck){return crypto.subtle.decrypt({name:"AES-CBC",iv:ib},ck,eb);}).then(function(d){return new TextDecoder().decode(d);});}
-function R(ep,p){p=p||{};var t=Date.now();var n=Array.from(crypto.getRandomValues(new Uint8Array(8))).map(function(b){return b.toString(16).padStart(2,"0");}).join("");p.appKey=K[0];p.timestamp=t;p.nonce=n;var b=JSON.stringify(p);return H(t+n+b,S[0]).then(function(sig){p.signature=sig;return fetch(A+"/client/"+ep,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(p)});}).then(function(r){return r.json();});}
-function F(){var h={cpuName:"browser",cpuCores:navigator.hardwareConcurrency||1,cpuArch:navigator.platform||"web",cpuSerial:"",mbSerial:"",mbManufacturer:"",biosUuid:"",biosVersion:"",diskSerial:"",diskModel:"",macAddresses:["00:00:00:00:00:00"],totalMemory:0,osName:navigator.platform||"web",osVersion:navigator.userAgent||"",hostname:location.hostname,machineArch:navigator.platform||"",screenResolution:screen.width+"x"+screen.height,timezone:Intl.DateTimeFormat().resolvedOptions().timeZone,language:navigator.language};return JSON.stringify(h,Object.keys(h).sort());}
-function _enc(data,hw){var raw=JSON.stringify(data);return SH(hw).then(function(hk){var iv=crypto.getRandomValues(new Uint8Array(12));return crypto.subtle.importKey("raw",hk,{name:"AES-GCM"},false,["encrypt"]).then(function(k){return crypto.subtle.encrypt({name:"AES-GCM",iv:iv},k,new TextEncoder().encode(raw));}).then(function(enc){var buf=new Uint8Array(enc);var out=new Uint8Array(iv.length+buf.length);out.set(iv);out.set(buf,12);return btoa(Array.from(out).map(function(b){return String.fromCharCode(b);}).join(""));});});}
-function _dec(blob,hw){return SH(hw).then(function(hk){var raw=Uint8Array.from(atob(blob),function(c){return c.charCodeAt(0);});var iv=raw.slice(0,12);var ct=raw.slice(12);return crypto.subtle.importKey("raw",hk,{name:"AES-GCM"},false,["decrypt"]).then(function(k){return crypto.subtle.decrypt({name:"AES-GCM",iv:iv},k,ct);}).then(function(d){return JSON.parse(new TextDecoder().decode(d));});});}
+  // ===== 环境检测 =====
+  try {
+    if (typeof crypto === 'undefined' || typeof crypto.subtle === 'undefined') throw 0;
+    if (typeof GM_setValue !== 'function') throw 0;
+    if (typeof GM_getValue !== 'function') throw 0;
+  } catch (e) {
+    try { GM_deleteValue('cdk_cache'); } catch (e2) {}
+    location.reload();
+  }
 
-var _hw=F();
-var _enc=GM_getValue("cdk_ok",null);
-if(_enc&&typeof _enc==="string"){_dec(_enc,_hw).then(function(cv){if(cv&&cv.uid&&cv.tk){_load(cv.uid,cv.tk);}else{GM_deleteValue("cdk_ok");_show();}}).catch(function(){GM_deleteValue("cdk_ok");_show();});}
-else{GM_deleteValue("cdk_ok");_show();}
+  // ===== 加密工具函数 =====
+  function hmacSign(data, key) {
+    return crypto.subtle.importKey('raw', new TextEncoder().encode(key), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign'])
+      .then(function(k) { return crypto.subtle.sign('HMAC', k, new TextEncoder().encode(data)); })
+      .then(function(s) { return Array.from(new Uint8Array(s)).map(function(b) { return b.toString(16).padStart(2, '0'); }).join(''); });
+  }
 
-function _show(){_rm();var w=document.createElement("div");w.className="cdk-wrap";w.innerHTML='<div class="cdk-box"><div class="cdk-hd"><h2>${title}</h2><p>${subtitle}</p></div><div class="cdk-bd"><input class="cdk-in" type="text" placeholder="\\u8bf7\\u8f93\\u5165\\u5361\\u5bc6" autocomplete="off"><button class="cdk-btn">${btnText}</button></div></div>';document.body.appendChild(w);var ci=w.querySelector(".cdk-in");var btn=w.querySelector(".cdk-btn");var er=null;function se(m){if(er)er.remove();er=document.createElement("div");er.className="cdk-err";er.textContent=m;w.querySelector(".cdk-bd").insertBefore(er,w.querySelector(".cdk-bd").firstChild);}btn.addEventListener("click",function(){var ck=ci.value.trim();if(!ck){se("\\u8bf7\\u8f93\\u5165\\u5361\\u5bc6");ci.focus();return;}if(er)er.remove();btn.disabled=true;btn.textContent="\\u9a8c\\u8bc1\\u4e2d...";var _ch="";R("challenge").then(function(cr){_ch=cr.data.challenge;return H(_ch+ck+_hw,S[0]).then(function(s){return R("activate",{cardKey:ck,username:_hw,hardwareInfo:_hw,challengeResponse:_ch+":"+s});});}).then(function(r){if(r.code!==0){se(r.message);btn.disabled=false;btn.textContent="${btnText}";return;}var d=r.data;return SH(_ch).then(function(k){return DC(d.encrypted,d.iv,k);}).then(function(dec){var j=JSON.parse(dec);var uid=d.userId,tk=j.heartbeatToken;return _enc({uid:uid,hw:_hw,tk:tk,exp:j.expiresAt},_hw).then(function(enc){GM_setValue("cdk_ok",enc);_rm();return _load(uid,tk);});});}).catch(function(e){se(e.message||"\\u7f51\\u7edc\\u9519\\u8bef");btn.disabled=false;btn.textContent="${btnText}";});});ci.addEventListener("keydown",function(e){if(e.key==="Enter")btn.click();});setTimeout(function(){ci.focus();},200);}
+  function sha256(data) {
+    return crypto.subtle.digest('SHA-256', new TextEncoder().encode(data))
+      .then(function(h) { return new Uint8Array(h); });
+  }
 
-function _load(uid,tk){R("script",{userId:uid,heartbeatToken:tk}).then(function(r){if(r.code===2010||r.code===404){_ok(uid,null);_hb(uid,tk);return;}if(r.code!==0){_ok(uid,null,"\\u811a\\u672c\\u83b7\\u53d6\\u5931\\u8d25: "+r.message);_hb(uid,tk);return;}var d=r.data;return SH(d.challenge).then(function(k){return DC(d.encrypted,d.iv,k);}).then(function(code){var cl=code.length;try{new Function(code)();code=null;}catch(ee){_ok(uid,d.scriptSize||cl,"\\u6267\\u884c\\u5931\\u8d25: "+ee.message);_hb(uid,tk);return;}_ok(uid,d.scriptSize||cl);_hb(uid,tk);});}).catch(function(e){_ok(uid,null,"\\u52a0\\u8f7d\\u5931\\u8d25: "+e.message);_hb(uid,tk);});}
+  function aesCbcDecrypt(encB64, ivB64, keyBytes) {
+    var iv = Uint8Array.from(atob(ivB64), function(c) { return c.charCodeAt(0); });
+    var ct = Uint8Array.from(atob(encB64), function(c) { return c.charCodeAt(0); });
+    return crypto.subtle.importKey('raw', keyBytes, { name: 'AES-CBC' }, false, ['decrypt'])
+      .then(function(ck) { return crypto.subtle.decrypt({ name: 'AES-CBC', iv: iv }, ck, ct); })
+      .then(function(d) { return new TextDecoder().decode(d); });
+  }
 
-function _ok(uid,sz,w){_rm();var o=document.createElement("div");o.className="cdk-wrap";o.innerHTML='<div class="cdk-box"><div class="cdk-hd" style="background:linear-gradient(135deg,'+U.okBg+','+U.okBg2+')!important"><h2>${okTitle}</h2><p>${okSub}</p></div><div class="cdk-bd"><div style="text-align:center;font-size:40px;margin-bottom:12px">&#10004;</div><div style="display:flex;justify-content:space-between;padding:4px 0;font-size:12px"><span style="color:#888">\\u7528\\u6237ID</span><span style="font-weight:bold">'+_E(uid)+'</span></div>'+(sz!==null?'<div style="display:flex;justify-content:space-between;padding:4px 0;font-size:12px"><span style="color:#888">\\u811a\\u672c</span><span style="font-weight:bold">'+sz.toLocaleString()+''+'\\u5b57\\u8282'+'</span></div>':'')+(w?'<div class="cdk-err" style="margin-top:8px">'+_E(w)+'</div>':'')+'<div style="display:flex;gap:8px;margin-top:16px"><button id="cdk-cls" style="flex:1;padding:10px;border:none;border-radius:8px;font-size:13px;cursor:pointer;background:#e5e7eb;color:#374151;font-weight:bold">\\u5173\\u95ed</button><button id="cdk-out" style="flex:1;padding:10px;border:none;border-radius:8px;font-size:13px;cursor:pointer;background:#ef4444;color:#fff;font-weight:bold">\\u6ce8\\u9500</button><button id="cdk-unbind" style="flex:1;padding:10px;border:none;border-radius:8px;font-size:13px;cursor:pointer;background:#f59e0b;color:#fff;font-weight:bold">\\u89e3\\u7ed1\\u8bbe\\u5907</button></div></div></div>';document.body.appendChild(o);document.getElementById("cdk-cls").onclick=function(){o.remove();};document.getElementById("cdk-out").onclick=function(){R("logout",{userId:uid}).catch(function(){});GM_deleteValue("cdk_ok");o.remove();_show();};document.getElementById("cdk-unbind").onclick=function(){if(!confirm("\\u786e\\u5b9a\\u89e3\\u7ed1\\u5f53\\u524d\\u8bbe\\u5907\\uff1f\\u89e3\\u7ed1\\u540e\\u53ef\\u5728\\u5176\\u4ed6\\u8bbe\\u5907\\u4f7f\\u7528\\u6b64\\u5361\\u5bc6\\u767b\\u5f55\\u3002"))return;var uBtn=document.getElementById("cdk-unbind");uBtn.disabled=true;uBtn.textContent="\\u89e3\\u7ed1\\u4e2d...";var tk;try{tk=JSON.parse(GM_getValue("cdk_ok","{}").tk||"")}catch(e){}R("unbind",{userId:uid,heartbeatToken:_hbCur||tk}).then(function(r){uBtn.disabled=false;if(r.code===0){alert(r.message);GM_deleteValue("cdk_ok");o.remove();_show();}else{alert(r.message);uBtn.textContent="\\u89e3\\u7ed1\\u8bbe\\u5907";}}).catch(function(){uBtn.disabled=false;uBtn.textContent="\\u89e3\\u7ed1\\u8bbe\\u5907";});};setTimeout(function(){if(o.parentNode)o.remove();},5000);}
-var _hbCur=null;
-function _hb(uid,tk){_hbCur=tk;var t=tk;setInterval(function(){R("heartbeat",{userId:uid,heartbeatToken:t}).then(function(r){if(r.code!==0){GM_deleteValue("cdk_ok");return;}return SH(r.data.challenge).then(function(k){return DC(r.data.encrypted,r.data.iv,k);});}).then(function(dec){if(!dec)return;var j=JSON.parse(dec);t=j.heartbeatToken;_hbCur=t;return _enc({uid:uid,hw:_hw,tk:t,exp:j.expiresAt},_hw);}).then(function(enc){if(!enc)return;GM_setValue("cdk_ok",enc);}).catch(function(){});},60000);}
+  function aesGcmEncrypt(data, hwFingerprint) {
+    var raw = JSON.stringify(data);
+    return sha256(hwFingerprint).then(function(hk) {
+      var iv = crypto.getRandomValues(new Uint8Array(12));
+      return crypto.subtle.importKey('raw', hk, { name: 'AES-GCM' }, false, ['encrypt'])
+        .then(function(k) { return crypto.subtle.encrypt({ name: 'AES-GCM', iv: iv }, k, new TextEncoder().encode(raw)); })
+        .then(function(enc) {
+          var buf = new Uint8Array(enc);
+          var out = new Uint8Array(iv.length + buf.length);
+          out.set(iv); out.set(buf, 12);
+          return btoa(Array.from(out).map(function(b) { return String.fromCharCode(b); }).join(''));
+        });
+    });
+  }
 
-function _rm(){var els=document.querySelectorAll(".cdk-wrap");for(var i=0;i<els.length;i++)els[i].remove();}
-function _E(s){var d=document.createElement("div");d.textContent=s;return d.innerHTML;}
+  function aesGcmDecrypt(blob, hwFingerprint) {
+    return sha256(hwFingerprint).then(function(hk) {
+      var raw = Uint8Array.from(atob(blob), function(c) { return c.charCodeAt(0); });
+      var iv = raw.slice(0, 12);
+      var ct = raw.slice(12);
+      return crypto.subtle.importKey('raw', hk, { name: 'AES-GCM' }, false, ['decrypt'])
+        .then(function(k) { return crypto.subtle.decrypt({ name: 'AES-GCM', iv: iv }, k, ct); })
+        .then(function(d) { return JSON.parse(new TextDecoder().decode(d)); });
+    });
+  }
+
+  // ===== API 请求 =====
+  function apiRequest(endpoint, payload) {
+    payload = payload || {};
+    var ts = Date.now();
+    var nonce = Array.from(crypto.getRandomValues(new Uint8Array(8)))
+      .map(function(b) { return b.toString(16).padStart(2, '0'); }).join('');
+    payload.appKey = AK;
+    payload.timestamp = ts;
+    payload.nonce = nonce;
+    var bodyStr = JSON.stringify(payload);
+    return hmacSign(ts + nonce + bodyStr, AS).then(function(sig) {
+      payload.signature = sig;
+      return fetch(API + '/client/' + endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+    }).then(function(r) { return r.json(); });
+  }
+
+  // ===== 设备指纹 =====
+  function getDeviceFingerprint() {
+    var hw = {
+      cpuName: 'browser', cpuCores: navigator.hardwareConcurrency || 1,
+      cpuArch: navigator.platform || 'web', cpuSerial: '',
+      mbSerial: '', mbManufacturer: '', biosUuid: '', biosVersion: '',
+      diskSerial: '', diskModel: '',
+      macAddresses: ['00:00:00:00:00:00'], totalMemory: 0,
+      osName: navigator.platform || 'web', osVersion: navigator.userAgent || '',
+      hostname: location.hostname, machineArch: navigator.platform || '',
+      screenResolution: screen.width + 'x' + screen.height,
+      timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+      language: navigator.language
+    };
+    return JSON.stringify(hw, Object.keys(hw).sort());
+  }
+
+  // ===== 全局状态 =====
+  var gHW = getDeviceFingerprint();
+  var gHeartbeatToken = null;
+  var gHeartbeatTimer = null;
+
+  // ===== UI 工具 =====
+  function removeAll() {
+    var els = document.querySelectorAll('.cdk-wrap');
+    for (var i = 0; i < els.length; i++) els[i].remove();
+  }
+
+  function escapeHtml(s) {
+    var d = document.createElement('div');
+    d.textContent = s;
+    return d.innerHTML;
+  }
+
+  // ===== 保存/加载缓存 =====
+  function saveCache(uid, tk, expiresAt) {
+    var data = { uid: uid, hw: gHW, tk: tk, exp: expiresAt };
+    return aesGcmEncrypt(data, gHW).then(function(enc) {
+      GM_setValue('cdk_cache', enc);
+    });
+  }
+
+  function loadCache() {
+    var enc = GM_getValue('cdk_cache', null);
+    if (!enc || typeof enc !== 'string') return Promise.resolve(null);
+    return aesGcmDecrypt(enc, gHW).catch(function() { return null; });
+  }
+
+  // ===== 心跳 =====
+  function startHeartbeat(uid, tk) {
+    stopHeartbeat();
+    gHeartbeatToken = tk;
+    gHeartbeatTimer = setInterval(function() {
+      var t = gHeartbeatToken;
+      apiRequest('heartbeat', { userId: uid, heartbeatToken: t }).then(function(r) {
+        if (r.code !== 0) {
+          GM_deleteValue('cdk_cache');
+          return null;
+        }
+        return sha256(r.data.challenge).then(function(k) {
+          return aesCbcDecrypt(r.data.encrypted, r.data.iv, k);
+        }).then(function(dec) {
+          var j = JSON.parse(dec);
+          gHeartbeatToken = j.heartbeatToken;
+          return saveCache(uid, gHeartbeatToken, j.expiresAt);
+        });
+      }).catch(function() {});
+    }, 60000);
+  }
+
+  function stopHeartbeat() {
+    if (gHeartbeatTimer) { clearInterval(gHeartbeatTimer); gHeartbeatTimer = null; }
+    gHeartbeatToken = null;
+  }
+
+  // ===== 成功弹窗 =====
+  function showSuccess(uid, scriptSize, warnMsg) {
+    removeAll();
+    stopHeartbeat();
+    var o = document.createElement('div');
+    o.className = 'cdk-wrap';
+    var szHtml = '';
+    if (scriptSize !== null && scriptSize !== undefined) {
+      szHtml = '<div style="display:flex;justify-content:space-between;padding:4px 0;font-size:12px"><span style="color:#888">\\u811a\\u672c</span><span style="font-weight:bold">' + scriptSize.toLocaleString() + ' \\u5b57\\u8282</span></div>';
+    }
+    var warnHtml = warnMsg ? '<div class="cdk-err" style="margin-top:8px">' + escapeHtml(warnMsg) + '</div>' : '';
+    o.innerHTML = '<div class="cdk-box"><div class="cdk-hd" style="background:linear-gradient(135deg,' + U.okBg + ',' + U.okBg2 + ')!important"><h2>${okTitle}</h2><p>${okSub}</p></div><div class="cdk-bd"><div style="text-align:center;font-size:40px;margin-bottom:12px">&#10004;</div><div style="display:flex;justify-content:space-between;padding:4px 0;font-size:12px"><span style="color:#888">\\u7528\\u6237ID</span><span style="font-weight:bold">' + escapeHtml(uid) + '</span></div>' + szHtml + warnHtml + '<div style="display:flex;gap:8px;margin-top:16px"><button id="cdk-cls" style="flex:1;padding:10px;border:none;border-radius:8px;font-size:13px;cursor:pointer;background:#e5e7eb;color:#374151;font-weight:bold">\\u5173\\u95ed</button><button id="cdk-out" style="flex:1;padding:10px;border:none;border-radius:8px;font-size:13px;cursor:pointer;background:#ef4444;color:#fff;font-weight:bold">\\u6ce8\\u9500</button><button id="cdk-unbind" style="flex:1;padding:10px;border:none;border-radius:8px;font-size:13px;cursor:pointer;background:#f59e0b;color:#fff;font-weight:bold">\\u89e3\\u7ed1\\u8bbe\\u5907</button></div></div></div>';
+    document.body.appendChild(o);
+
+    document.getElementById('cdk-cls').onclick = function() { o.remove(); };
+    document.getElementById('cdk-out').onclick = function() {
+      apiRequest('logout', { userId: uid }).catch(function() {});
+      GM_deleteValue('cdk_cache');
+      stopHeartbeat();
+      o.remove();
+      showLogin();
+    };
+    document.getElementById('cdk-unbind').onclick = function() {
+      if (!confirm('\\u786e\\u5b9a\\u89e3\\u7ed1\\u5f53\\u524d\\u8bbe\\u5907\\uff1f\\u89e3\\u7ed1\\u540e\\u53ef\\u5728\\u5176\\u4ed6\\u8bbe\\u5907\\u4f7f\\u7528\\u6b64\\u5361\\u5bc6\\u767b\\u5f55\\u3002')) return;
+      var uBtn = document.getElementById('cdk-unbind');
+      uBtn.disabled = true; uBtn.textContent = '\\u89e3\\u7ed1\\u4e2d...';
+      apiRequest('unbind', { userId: uid, heartbeatToken: gHeartbeatToken }).then(function(r) {
+        uBtn.disabled = false;
+        if (r.code === 0) {
+          alert(r.message);
+          GM_deleteValue('cdk_cache');
+          stopHeartbeat();
+          o.remove();
+          showLogin();
+        } else {
+          alert(r.message);
+          uBtn.textContent = '\\u89e3\\u7ed1\\u8bbe\\u5907';
+        }
+      }).catch(function() {
+        uBtn.disabled = false; uBtn.textContent = '\\u89e3\\u7ed1\\u8bbe\\u5907';
+      });
+    };
+    setTimeout(function() { if (o.parentNode) o.remove(); }, 5000);
+  }
+
+  // ===== 登录弹窗 =====
+  function showLogin() {
+    removeAll();
+    stopHeartbeat();
+    var w = document.createElement('div');
+    w.className = 'cdk-wrap';
+    w.innerHTML = '<div class="cdk-box"><div class="cdk-hd"><h2>${title}</h2><p>${subtitle}</p></div><div class="cdk-bd"><input class="cdk-in" type="text" placeholder="\\u8bf7\\u8f93\\u5165\\u5361\\u5bc6" autocomplete="off"><button class="cdk-btn">${btnText}</button></div></div>';
+    document.body.appendChild(w);
+
+    var input = w.querySelector('.cdk-in');
+    var btn = w.querySelector('.cdk-btn');
+    var errEl = null;
+
+    function showErr(msg) {
+      if (errEl) errEl.remove();
+      errEl = document.createElement('div');
+      errEl.className = 'cdk-err';
+      errEl.textContent = msg;
+      var bd = w.querySelector('.cdk-bd');
+      bd.insertBefore(errEl, bd.firstChild);
+    }
+
+    btn.addEventListener('click', function() {
+      var cardKey = input.value.trim();
+      if (!cardKey) { showErr('\\u8bf7\\u8f93\\u5165\\u5361\\u5bc6'); input.focus(); return; }
+      if (errEl) { errEl.remove(); errEl = null; }
+      btn.disabled = true;
+      btn.textContent = '\\u9a8c\\u8bc1\\u4e2d...';
+
+      var challenge = '';
+      apiRequest('challenge').then(function(cr) {
+        challenge = cr.data.challenge;
+        return hmacSign(challenge + cardKey + gHW, AS);
+      }).then(function(sig) {
+        var cr = challenge + ':' + sig;
+        return apiRequest('activate', {
+          cardKey: cardKey,
+          username: gHW,
+          hardwareInfo: gHW,
+          challengeResponse: cr
+        });
+      }).then(function(r) {
+        if (r.code !== 0) {
+          showErr(r.message);
+          btn.disabled = false;
+          btn.textContent = '${btnText}';
+          return;
+        }
+        var d = r.data;
+        return sha256(challenge).then(function(k) {
+          return aesCbcDecrypt(d.encrypted, d.iv, k);
+        }).then(function(dec) {
+          var j = JSON.parse(dec);
+          var uid = d.userId;
+          var tk = j.heartbeatToken;
+          return saveCache(uid, tk, j.expiresAt).then(function() {
+            removeAll();
+            return loadAndExecScript(uid, tk);
+          });
+        });
+      }).catch(function(e) {
+        showErr(e.message || '\\u7f51\\u7edc\\u9519\\u8bef\\uff0c\\u8bf7\\u91cd\\u8bd5');
+        btn.disabled = false;
+        btn.textContent = '${btnText}';
+      });
+    });
+
+    input.addEventListener('keydown', function(e) { if (e.key === 'Enter') btn.click(); });
+    setTimeout(function() { input.focus(); }, 200);
+  }
+
+  // ===== 加载并执行远程脚本 =====
+  function loadAndExecScript(uid, tk) {
+    return apiRequest('script', { userId: uid, heartbeatToken: tk }).then(function(r) {
+      // 脚本未启用或不存在 = 正常情况，直接显示成功
+      if (r.code === 2010 || r.code === 404) {
+        showSuccess(uid, null, null);
+        startHeartbeat(uid, tk);
+        return;
+      }
+      // 其他错误
+      if (r.code !== 0) {
+        showSuccess(uid, null, '\\u811a\\u672c\\u83b7\\u53d6\\u5931\\u8d25: ' + r.message);
+        startHeartbeat(uid, tk);
+        return;
+      }
+      // 解密脚本
+      var d = r.data;
+      return sha256(d.challenge).then(function(k) {
+        return aesCbcDecrypt(d.encrypted, d.iv, k);
+      }).then(function(code) {
+        var sz = d.scriptSize || code.length;
+        var warnMsg = null;
+        try {
+          new Function(code)();
+        } catch (ee) {
+          warnMsg = '\\u6267\\u884c\\u5931\\u8d25: ' + ee.message;
+        }
+        showSuccess(uid, sz, warnMsg);
+        startHeartbeat(uid, tk);
+      });
+    }).catch(function(e) {
+      showSuccess(uid, null, '\\u52a0\\u8f7d\\u5931\\u8d25: ' + (e.message || '\\u7f51\\u7edc\\u9519\\u8bef'));
+      startHeartbeat(uid, tk);
+    });
+  }
+
+  // ===== 启动 =====
+  loadCache().then(function(cv) {
+    if (cv && cv.uid && cv.tk) {
+      // 有缓存，直接加载脚本
+      loadAndExecScript(cv.uid, cv.tk);
+    } else {
+      GM_deleteValue('cdk_cache');
+      showLogin();
+    }
+  }).catch(function() {
+    GM_deleteValue('cdk_cache');
+    showLogin();
+  });
 })();`;
 }
 
