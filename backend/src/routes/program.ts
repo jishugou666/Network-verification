@@ -1,7 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { authMiddleware, requireRole } from '../middleware/auth';
 import * as programService from '../services/program';
-import { generateClientCode, LANG_META, CLIENT_LANGUAGES } from '../services/client';
+import { generateClientCode, LANG_META, CLIENT_LANGUAGES, ClientLang } from '../services/client';
 import { buildClient, getBuildCapabilities } from '../services/build';
 import { success, fail, serverError } from '../utils/response';
 import { ErrorCode } from '../types';
@@ -258,7 +258,7 @@ router.put('/:id/announcement', async (req: Request, res: Response) => {
 // 预览客户端源码（选择语言后实时展示）
 router.get('/:id/client/preview', async (req: Request, res: Response) => {
   try {
-    const lang = req.query.lang as string;
+    const lang = req.query.lang as ClientLang;
     if (!lang || !CLIENT_LANGUAGES.includes(lang)) {
       fail(res, ErrorCode.INVALID_INPUT, '无效的语言类型');
       return;
