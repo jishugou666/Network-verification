@@ -102,7 +102,7 @@ export async function activateCard(
   if (!matchedCard) {
     const allCards = await prisma.cardKey.findMany({
       where: { programId: program.id, status: { in: ['inactive', 'active'] } },
-      select: { id: true, cardHash: true, status: true, endUserId: true, expiresAt: true, durationDays: true },
+      select: { id: true, cardHash: true, status: true, endUserId: true, expiresAt: true, durationDays: true, activatedAt: true },
     });
     for (const card of allCards) {
       if (await bcrypt.compare(cardKeyPlain, card.cardHash)) { matchedCard = card; break; }
