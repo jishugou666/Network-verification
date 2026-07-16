@@ -126,18 +126,39 @@
     gHeartbeatToken = null;
   }
 
+  // ===== 格式化时间 =====
+  function fmtTime(iso) {
+    if (!iso) return '永久';
+    var d = new Date(iso);
+    var p = function(n) { return (n < 10 ? '0' : '') + n; };
+    return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()) + ' ' + p(d.getHours()) + ':' + p(d.getMinutes());
+  }
+
   // ===== 成功弹窗 =====
-  function showSuccess(uid, scriptSize, warnMsg) {
+  function showSuccess(uid, info, scriptSize, warnMsg) {
     removeAll();
     stopHeartbeat();
     var o = document.createElement('div');
     o.className = 'cdk-wrap';
-    var szHtml = '';
+    info = info || {};
+    var rows = '';
+    rows += '<div style="display:flex;justify-content:space-between;padding:3px 0;font-size:12px"><span style="color:#888">用户ID</span><span style="font-weight:bold;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + escapeHtml(uid) + '">' + escapeHtml(uid.slice(0,8) + '...') + '</span></div>';
+    if (info.activatedAt) {
+      rows += '<div style="display:flex;justify-content:space-between;padding:3px 0;font-size:12px"><span style="color:#888">激活时间</span><span style="font-weight:bold">' + escapeHtml(fmtTime(info.activatedAt)) + '</span></div>';
+    }
+    if (info.expiresAt) {
+      rows += '<div style="display:flex;justify-content:space-between;padding:3px 0;font-size:12px"><span style="color:#888">到期时间</span><span style="font-weight:bold">' + escapeHtml(fmtTime(info.expiresAt)) + '</span></div>';
+    } else if (info.expiresAt === null) {
+      rows += '<div style="display:flex;justify-content:space-between;padding:3px 0;font-size:12px"><span style="color:#888">到期时间</span><span style="font-weight:bold;color:#16a34a">永久</span></div>';
+    }
+    if (info.maxDevices) {
+      rows += '<div style="display:flex;justify-content:space-between;padding:3px 0;font-size:12px"><span style="color:#888">设备限制</span><span style="font-weight:bold">' + info.deviceCount + ' / ' + info.maxDevices + '</span></div>';
+    }
     if (scriptSize !== null && scriptSize !== undefined) {
-      szHtml = '<div style="display:flex;justify-content:space-between;padding:4px 0;font-size:12px"><span style="color:#888">脚本</span><span style="font-weight:bold">' + scriptSize.toLocaleString() + ' 字节</span></div>';
+      rows += '<div style="display:flex;justify-content:space-between;padding:3px 0;font-size:12px"><span style="color:#888">脚本</span><span style="font-weight:bold">' + scriptSize.toLocaleString() + ' 字节</span></div>';
     }
     var warnHtml = warnMsg ? '<div class="cdk-err" style="margin-top:8px">' + escapeHtml(warnMsg) + '</div>' : '';
-    o.innerHTML = '<div class="cdk-box"><div class="cdk-hd" style="background:linear-gradient(135deg,#10b981,#059669) !important"><h2>验证成功</h2><p>功能已激活</p></div><div class="cdk-bd"><div style="text-align:center;font-size:40px;margin-bottom:12px">&#10004;</div><div style="display:flex;justify-content:space-between;padding:4px 0;font-size:12px"><span style="color:#888">用户ID</span><span style="font-weight:bold">' + escapeHtml(uid) + '</span></div>' + szHtml + warnHtml + '<div style="display:flex;gap:8px;margin-top:16px"><button id="cdk-cls" style="flex:1;padding:10px;border:none;border-radius:8px;font-size:13px;cursor:pointer;background:#e5e7eb;color:#374151;font-weight:bold">关闭</button><button id="cdk-out" style="flex:1;padding:10px;border:none;border-radius:8px;font-size:13px;cursor:pointer;background:#ef4444;color:#fff;font-weight:bold">注销</button></div></div></div>';
+    o.innerHTML = '<div class="cdk-box"><div class="cdk-hd" style="background:linear-gradient(135deg,#10b981,#059669) !important"><h2>验证成功</h2><p>功能已激活</p></div><div class="cdk-bd"><div style="text-align:center;font-size:40px;margin-bottom:12px">&#10004;</div>' + rows + warnHtml + '<div style="display:flex;gap:8px;margin-top:16px"><button id="cdk-cls" style="flex:1;padding:10px;border:none;border-radius:8px;font-size:13px;cursor:pointer;background:#e5e7eb;color:#374151;font-weight:bold">关闭</button><button id="cdk-out" style="flex:1;padding:10px;border:none;border-radius:8px;font-size:13px;cursor:pointer;background:#ef4444;color:#fff;font-weight:bold">注销</button></div></div></div>';
     document.body.appendChild(o);
 
     document.getElementById('cdk-cls').onclick = function() { o.remove(); };
@@ -174,6 +195,12 @@
       bd.insertBefore(errEl, bd.firstChild);
     }
 
+    // 预取 challenge 加速
+    var prefetchedChallenge = null;
+    apiRequest('challenge').then(function(cr) {
+      prefetchedChallenge = cr.data.challenge;
+    }).catch(function() {});
+
     btn.addEventListener('click', async function() {
       var cardKey = input.value.trim();
       if (!cardKey) { showErr('请输入卡密'); input.focus(); return; }
@@ -183,9 +210,15 @@
 
       var challenge = '';
       try {
-        console.log('[CDK] 获取 challenge');
-        var cr = await apiRequest('challenge');
-        challenge = cr.data.challenge;
+        // 用预取的 challenge 或重新获取
+        if (prefetchedChallenge) {
+          challenge = prefetchedChallenge;
+          prefetchedChallenge = null;
+        } else {
+          console.log('[CDK] 获取 challenge');
+          var cr = await apiRequest('challenge');
+          challenge = cr.data.challenge;
+        }
 
         var sig = await hmacSign(challenge + cardKey + gHW, AS);
         console.log('[CDK] 激活卡密');
@@ -209,17 +242,27 @@
         var dec = JSON.parse(await aesCbcDecrypt(d.encrypted, d.iv, k));
         var uid = d.userId;
         var tk = dec.heartbeatToken;
+        var actInfo = {
+          activatedAt: dec.activatedAt,
+          expiresAt: dec.expiresAt,
+          maxDevices: dec.maxDevices,
+          deviceCount: dec.deviceCount
+        };
 
         GM_setValue('cdk_cache', { uid: uid, tk: tk, hw: gHW, exp: dec.expiresAt });
         console.log('[CDK] 激活成功, uid:', uid);
 
         removeAll();
-        await loadAndExecScript(uid, tk);
+        await loadAndExecScript(uid, tk, actInfo);
       } catch (e) {
         console.error('[CDK] 异常:', e);
         showErr(e.message || '网络错误，请重试');
         btn.disabled = false;
         btn.textContent = '验证并激活';
+        // 重新预取
+        apiRequest('challenge').then(function(cr) {
+          prefetchedChallenge = cr.data.challenge;
+        }).catch(function() {});
       }
     });
 
@@ -230,20 +273,20 @@
   }
 
   // ===== 加载并执行远程脚本 =====
-  async function loadAndExecScript(uid, tk) {
+  async function loadAndExecScript(uid, tk, actInfo) {
     try {
       console.log('[CDK] 拉取脚本');
       var r = await apiRequest('script', { userId: uid, heartbeatToken: tk });
 
       // 脚本未启用或不存在 = 正常
       if (r.code === 2010 || r.code === 404) {
-        showSuccess(uid, null, null);
+        showSuccess(uid, actInfo, null, null);
         startHeartbeat(uid, tk);
         return;
       }
 
       if (r.code !== 0) {
-        showSuccess(uid, null, '脚本获取失败: ' + r.message);
+        showSuccess(uid, actInfo, null, '脚本获取失败: ' + r.message);
         startHeartbeat(uid, tk);
         return;
       }
@@ -260,11 +303,11 @@
       } catch (ee) {
         warnMsg = '执行失败: ' + ee.message;
       }
-      showSuccess(uid, sz, warnMsg);
+      showSuccess(uid, actInfo, sz, warnMsg);
       startHeartbeat(uid, tk);
     } catch (e) {
       console.error('[CDK] 脚本加载失败:', e.message);
-      showSuccess(uid, null, '加载失败: ' + e.message);
+      showSuccess(uid, actInfo, null, '加载失败: ' + e.message);
       startHeartbeat(uid, tk);
     }
   }
@@ -273,7 +316,7 @@
   var cached = GM_getValue('cdk_cache', null);
   if (cached && cached.uid && cached.tk) {
     console.log('[CDK] 已激活，加载脚本');
-    loadAndExecScript(cached.uid, cached.tk);
+    loadAndExecScript(cached.uid, cached.tk, cached.exp ? { activatedAt: null, expiresAt: cached.exp, maxDevices: null, deviceCount: null } : {});
   } else {
     GM_deleteValue('cdk_cache');
     showLogin();

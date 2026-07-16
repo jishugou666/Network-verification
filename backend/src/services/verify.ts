@@ -18,19 +18,9 @@ export async function getChallenge(appKey: string) {
 
   const challenge = generateChallenge();
 
-  // P1: 服务端保存 challenge，用于激活时一次性消费
+  // 保存 challenge 用于激活时一次性消费（不记录日志，加速响应）
   await prisma.challenge.create({
     data: { programId: program.id, challenge },
-  });
-
-  // 记录验证日志
-  await prisma.verifyLog.create({
-    data: {
-      programId: program.id,
-      action: 'challenge',
-      success: true,
-      detail: JSON.stringify({ challenge }),
-    },
   });
 
   return { code: 0, message: 'ok', data: { challenge } };
@@ -98,7 +88,7 @@ export async function activateCard(
   const hmacIndex = hmacSign(cardKeyPlain, appSecret);
   const indexedCard = await prisma.cardKey.findFirst({
     where: { programId: program.id, cardHmacIndex: hmacIndex, status: { in: ['inactive', 'active'] } },
-    select: { id: true, cardHash: true, status: true, endUserId: true, expiresAt: true, durationDays: true },
+    select: { id: true, cardHash: true, status: true, endUserId: true, expiresAt: true, durationDays: true, activatedAt: true },
   });
 
   let matchedCard: typeof indexedCard | null = null;
@@ -155,7 +145,8 @@ export async function activateCard(
       ]);
 
       // 加密响应
-      const responseData = JSON.stringify({ userId: matchedCard.endUserId, username: endUser.username, heartbeatToken, expiresAt: expiresAt?.toISOString() || null, maxDevices: program.maxDevices, deviceCount: 1 });
+      const activatedAt = matchedCard.activatedAt || new Date();
+      const responseData = JSON.stringify({ userId: matchedCard.endUserId, username: endUser.username, heartbeatToken, expiresAt: expiresAt?.toISOString() || null, activatedAt: activatedAt instanceof Date ? activatedAt.toISOString() : new Date(activatedAt).toISOString(), maxDevices: program.maxDevices, deviceCount: 1 });
       const encrypted = encryptResponse(responseData, challenge);
 
       return { code: 0, message: '设备已绑定，登录成功', data: { ...encrypted, userId: matchedCard.endUserId } };
@@ -211,7 +202,7 @@ export async function activateCard(
     prisma.heartbeatToken.create({ data: { endUserId: endUser.id, programId: program.id, token: heartbeatToken, deviceFingerprint, expiresAt: new Date(Date.now() + program.heartbeatTimeout * 1000) } }),
   ]);
 
-  const responseData = JSON.stringify({ userId: endUser.id, username: deviceFingerprint, heartbeatToken, expiresAt: expiresAt?.toISOString() || null, maxDevices: program.maxDevices, deviceCount: 1 });
+  const responseData = JSON.stringify({ userId: endUser.id, username: deviceFingerprint, heartbeatToken, expiresAt: expiresAt?.toISOString() || null, activatedAt: new Date().toISOString(), maxDevices: program.maxDevices, deviceCount: 1 });
   const encrypted = encryptResponse(responseData, challenge);
 
   return { code: 0, message: '激活成功', data: { ...encrypted, userId: endUser.id } };

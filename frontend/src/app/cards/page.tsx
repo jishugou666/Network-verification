@@ -206,7 +206,9 @@ export default function CardsPage() {
                   )}
                 </td>
                 <td className="px-4 py-3 text-gray-500">{c.program?.name || '-'}</td>
-                <td className="px-4 py-3 text-gray-500">{c.endUser?.username || '-'}</td>
+                <td className="px-4 py-3 text-gray-500 text-xs font-mono" title={c.endUser?.username || ''}>
+                  {c.endUser?.username ? c.endUser.username.slice(0, 4) + '...' : '-'}
+                </td>
                 <td className="px-4 py-3 text-gray-500 text-xs">{c.generatedAt ? new Date(c.generatedAt).toLocaleString() : '-'}</td>
                 <td className="px-4 py-3 text-gray-500 text-xs">{c.expiresAt ? new Date(c.expiresAt).toLocaleString() : '-'}</td>
                 <td className="px-4 py-3">

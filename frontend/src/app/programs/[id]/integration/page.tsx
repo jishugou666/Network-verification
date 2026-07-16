@@ -225,18 +225,39 @@ function getClientScriptTemplate(appKey: string, appSecret: string, apiBase: str
     gHeartbeatToken = null;
   }
 
+  // ===== 格式化时间 =====
+  function fmtTime(iso) {
+    if (!iso) return '\\u6c38\\u4e45';
+    var d = new Date(iso);
+    var p = function(n) { return (n < 10 ? '0' : '') + n; };
+    return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()) + ' ' + p(d.getHours()) + ':' + p(d.getMinutes());
+  }
+
   // ===== 成功弹窗 =====
-  function showSuccess(uid, scriptSize, warnMsg) {
+  function showSuccess(uid, info, scriptSize, warnMsg) {
     removeAll();
     stopHeartbeat();
     var o = document.createElement('div');
     o.className = 'cdk-wrap';
-    var szHtml = '';
+    info = info || {};
+    var rows = '';
+    rows += '<div style="display:flex;justify-content:space-between;padding:3px 0;font-size:12px"><span style="color:#888">\\u7528\\u6237ID</span><span style="font-weight:bold;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + escapeHtml(uid) + '">' + escapeHtml(uid.slice(0,8) + '...') + '</span></div>';
+    if (info.activatedAt) {
+      rows += '<div style="display:flex;justify-content:space-between;padding:3px 0;font-size:12px"><span style="color:#888">\\u6fc0\\u6d3b\\u65f6\\u95f4</span><span style="font-weight:bold">' + escapeHtml(fmtTime(info.activatedAt)) + '</span></div>';
+    }
+    if (info.expiresAt) {
+      rows += '<div style="display:flex;justify-content:space-between;padding:3px 0;font-size:12px"><span style="color:#888">\\u5230\\u671f\\u65f6\\u95f4</span><span style="font-weight:bold">' + escapeHtml(fmtTime(info.expiresAt)) + '</span></div>';
+    } else if (info.expiresAt === null) {
+      rows += '<div style="display:flex;justify-content:space-between;padding:3px 0;font-size:12px"><span style="color:#888">\\u5230\\u671f\\u65f6\\u95f4</span><span style="font-weight:bold;color:#16a34a">\\u6c38\\u4e45</span></div>';
+    }
+    if (info.maxDevices) {
+      rows += '<div style="display:flex;justify-content:space-between;padding:3px 0;font-size:12px"><span style="color:#888">\\u8bbe\\u5907\\u9650\\u5236</span><span style="font-weight:bold">' + info.deviceCount + ' / ' + info.maxDevices + '</span></div>';
+    }
     if (scriptSize !== null && scriptSize !== undefined) {
-      szHtml = '<div style="display:flex;justify-content:space-between;padding:4px 0;font-size:12px"><span style="color:#888">\\u811a\\u672c</span><span style="font-weight:bold">' + scriptSize.toLocaleString() + ' \\u5b57\\u8282</span></div>';
+      rows += '<div style="display:flex;justify-content:space-between;padding:3px 0;font-size:12px"><span style="color:#888">\\u811a\\u672c</span><span style="font-weight:bold">' + scriptSize.toLocaleString() + ' \\u5b57\\u8282</span></div>';
     }
     var warnHtml = warnMsg ? '<div class="cdk-err" style="margin-top:8px">' + escapeHtml(warnMsg) + '</div>' : '';
-    o.innerHTML = '<div class="cdk-box"><div class="cdk-hd" style="background:linear-gradient(135deg,' + U.okBg + ',' + U.okBg2 + ')!important"><h2>${okTitle}</h2><p>${okSub}</p></div><div class="cdk-bd"><div style="text-align:center;font-size:40px;margin-bottom:12px">&#10004;</div><div style="display:flex;justify-content:space-between;padding:4px 0;font-size:12px"><span style="color:#888">\\u7528\\u6237ID</span><span style="font-weight:bold">' + escapeHtml(uid) + '</span></div>' + szHtml + warnHtml + '<div style="display:flex;gap:8px;margin-top:16px"><button id="cdk-cls" style="flex:1;padding:10px;border:none;border-radius:8px;font-size:13px;cursor:pointer;background:#e5e7eb;color:#374151;font-weight:bold">\\u5173\\u95ed</button><button id="cdk-out" style="flex:1;padding:10px;border:none;border-radius:8px;font-size:13px;cursor:pointer;background:#ef4444;color:#fff;font-weight:bold">\\u6ce8\\u9500</button><button id="cdk-unbind" style="flex:1;padding:10px;border:none;border-radius:8px;font-size:13px;cursor:pointer;background:#f59e0b;color:#fff;font-weight:bold">\\u89e3\\u7ed1\\u8bbe\\u5907</button></div></div></div>';
+    o.innerHTML = '<div class="cdk-box"><div class="cdk-hd" style="background:linear-gradient(135deg,' + U.okBg + ',' + U.okBg2 + ')!important"><h2>${okTitle}</h2><p>${okSub}</p></div><div class="cdk-bd"><div style="text-align:center;font-size:40px;margin-bottom:12px">&#10004;</div>' + rows + warnHtml + '<div style="display:flex;gap:8px;margin-top:16px"><button id="cdk-cls" style="flex:1;padding:10px;border:none;border-radius:8px;font-size:13px;cursor:pointer;background:#e5e7eb;color:#374151;font-weight:bold">\\u5173\\u95ed</button><button id="cdk-out" style="flex:1;padding:10px;border:none;border-radius:8px;font-size:13px;cursor:pointer;background:#ef4444;color:#fff;font-weight:bold">\\u6ce8\\u9500</button><button id="cdk-unbind" style="flex:1;padding:10px;border:none;border-radius:8px;font-size:13px;cursor:pointer;background:#f59e0b;color:#fff;font-weight:bold">\\u89e3\\u7ed1\\u8bbe\\u5907</button></div></div></div>';
     document.body.appendChild(o);
 
     document.getElementById('cdk-cls').onclick = function() { o.remove(); };
@@ -282,6 +303,7 @@ function getClientScriptTemplate(appKey: string, appSecret: string, apiBase: str
     var input = w.querySelector('.cdk-in');
     var btn = w.querySelector('.cdk-btn');
     var errEl = null;
+    var prefetchedChallenge = null;
 
     function showErr(msg) {
       if (errEl) errEl.remove();
@@ -292,6 +314,11 @@ function getClientScriptTemplate(appKey: string, appSecret: string, apiBase: str
       bd.insertBefore(errEl, bd.firstChild);
     }
 
+    // 提前预取 challenge，加速验证
+    apiRequest('challenge').then(function(cr) {
+      prefetchedChallenge = cr.data.challenge;
+    }).catch(function() {});
+
     btn.addEventListener('click', function() {
       var cardKey = input.value.trim();
       if (!cardKey) { showErr('\\u8bf7\\u8f93\\u5165\\u5361\\u5bc6'); input.focus(); return; }
@@ -300,7 +327,13 @@ function getClientScriptTemplate(appKey: string, appSecret: string, apiBase: str
       btn.textContent = '\\u9a8c\\u8bc1\\u4e2d...';
 
       var challenge = '';
-      apiRequest('challenge').then(function(cr) {
+      // 如果有预取的 challenge 直接用，否则重新获取
+      var getChallenge = prefetchedChallenge
+        ? Promise.resolve({ data: { challenge: prefetchedChallenge } })
+        : apiRequest('challenge');
+      prefetchedChallenge = null;
+
+      getChallenge.then(function(cr) {
         challenge = cr.data.challenge;
         return hmacSign(challenge + cardKey + gHW, AS);
       }).then(function(sig) {
@@ -325,15 +358,25 @@ function getClientScriptTemplate(appKey: string, appSecret: string, apiBase: str
           var j = JSON.parse(dec);
           var uid = d.userId;
           var tk = j.heartbeatToken;
+          var actInfo = {
+            activatedAt: j.activatedAt,
+            expiresAt: j.expiresAt,
+            maxDevices: j.maxDevices,
+            deviceCount: j.deviceCount
+          };
           return saveCache(uid, tk, j.expiresAt).then(function() {
             removeAll();
-            return loadAndExecScript(uid, tk);
+            return loadAndExecScript(uid, tk, actInfo);
           });
         });
       }).catch(function(e) {
         showErr(e.message || '\\u7f51\\u7edc\\u9519\\u8bef\\uff0c\\u8bf7\\u91cd\\u8bd5');
         btn.disabled = false;
         btn.textContent = '${btnText}';
+        // 重新预取 challenge
+        apiRequest('challenge').then(function(cr) {
+          prefetchedChallenge = cr.data.challenge;
+        }).catch(function() {});
       });
     });
 
@@ -342,17 +385,17 @@ function getClientScriptTemplate(appKey: string, appSecret: string, apiBase: str
   }
 
   // ===== 加载并执行远程脚本 =====
-  function loadAndExecScript(uid, tk) {
+  function loadAndExecScript(uid, tk, actInfo) {
     return apiRequest('script', { userId: uid, heartbeatToken: tk }).then(function(r) {
       // 脚本未启用或不存在 = 正常情况，直接显示成功
       if (r.code === 2010 || r.code === 404) {
-        showSuccess(uid, null, null);
+        showSuccess(uid, actInfo, null, null);
         startHeartbeat(uid, tk);
         return;
       }
       // 其他错误
       if (r.code !== 0) {
-        showSuccess(uid, null, '\\u811a\\u672c\\u83b7\\u53d6\\u5931\\u8d25: ' + r.message);
+        showSuccess(uid, actInfo, null, '\\u811a\\u672c\\u83b7\\u53d6\\u5931\\u8d25: ' + r.message);
         startHeartbeat(uid, tk);
         return;
       }
@@ -368,11 +411,11 @@ function getClientScriptTemplate(appKey: string, appSecret: string, apiBase: str
         } catch (ee) {
           warnMsg = '\\u6267\\u884c\\u5931\\u8d25: ' + ee.message;
         }
-        showSuccess(uid, sz, warnMsg);
+        showSuccess(uid, actInfo, sz, warnMsg);
         startHeartbeat(uid, tk);
       });
     }).catch(function(e) {
-      showSuccess(uid, null, '\\u52a0\\u8f7d\\u5931\\u8d25: ' + (e.message || '\\u7f51\\u7edc\\u9519\\u8bef'));
+      showSuccess(uid, actInfo, null, '\\u52a0\\u8f7d\\u5931\\u8d25: ' + (e.message || '\\u7f51\\u7edc\\u9519\\u8bef'));
       startHeartbeat(uid, tk);
     });
   }
@@ -381,7 +424,7 @@ function getClientScriptTemplate(appKey: string, appSecret: string, apiBase: str
   loadCache().then(function(cv) {
     if (cv && cv.uid && cv.tk) {
       // 有缓存，直接加载脚本
-      loadAndExecScript(cv.uid, cv.tk);
+      loadAndExecScript(cv.uid, cv.tk, cv.exp ? { activatedAt: null, expiresAt: cv.exp, maxDevices: null, deviceCount: null } : {});
     } else {
       GM_deleteValue('cdk_cache');
       showLogin();
