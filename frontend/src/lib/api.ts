@@ -76,6 +76,10 @@ export const programApi = {
   updateAnnouncement: (id: string, announcement: string) => api.put<any>(`/programs/${id}/announcement`, { announcement }),
   getLanguages: () => api.get<any[]>('/programs/languages'),
   generateClient: (id: string, data: { lang: string; appName?: string; appVersion?: string; appDescription?: string }) => api.post<any>(`/programs/${id}/client`, data),
+  getBuildCapabilities: (id: string) => api.get<any[]>(`/programs/${id}/client/build/capabilities`),
+  buildClient: (id: string, data: { lang: string; appName?: string; appVersion?: string; appDescription?: string }) =>
+    api.post<any>(`/programs/${id}/client/build`, data),
+  previewClient: (id: string, lang: string) => api.get<any>(`/programs/${id}/client/preview?lang=${lang}`),
   getUIConfig: (id: string) => api.get<any>(`/programs/${id}/ui-config`),
   updateUIConfig: (id: string, config: any) => api.put<any>(`/programs/${id}/ui-config`, config),
 };

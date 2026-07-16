@@ -1,5 +1,6 @@
 import { prisma } from '../utils/prisma';
 import { aesDecrypt } from '../utils/crypto';
+import { obfuscateConfig, decryptionSnippets, ObfuscatedConfig } from '../utils/obfuscate';
 
 // 支持的客户端语言
 export const CLIENT_LANGUAGES = [
@@ -29,15 +30,16 @@ export interface ClientGenOptions {
 }
 
 // 生成 Python 客户端
-function genPython(appKey: string, appSecret: string, apiBase: string, opts: ClientGenOptions): string {
+function genPython(cfg: ObfuscatedConfig, opts: ClientGenOptions): string {
   const name = opts.appName || 'MyApp';
+  const snip = decryptionSnippets(cfg.appKey);
   return `"""
 ${name} - CDK 卡密验证客户端
 ${opts.appDescription || '自动生成的验证客户端'}
 版本: ${opts.appVersion || '1.0.0'}
 
 打包为 EXE:
-  pip install pyinstaller
+  pip install pyinstaller pycryptodome requests
   pyinstaller --onefile --windowed --name "${name}" client.py
 """
 
@@ -56,10 +58,16 @@ import requests
 from Crypto.Cipher import AES
 from Crypto.Util.Padding import unpad
 
-# ===== 配置 =====
-APP_KEY = "${appKey}"
-APP_SECRET = "${appSecret}"
-API_BASE = "${apiBase}"
+# ===== 加密常量（运行时解密） =====
+${snip.python}
+
+_APP_KEY_ENC = "${cfg.appKeyEnc}"
+_APP_SECRET_ENC = "${cfg.appSecretEnc}"
+_API_BASE_ENC = "${cfg.apiBaseEnc}"
+
+APP_KEY = _d(_APP_KEY_ENC)
+APP_SECRET = _d(_APP_SECRET_ENC)
+API_BASE = _d(_API_BASE_ENC)
 HEARTBEAT_INTERVAL = 60  # 心跳间隔（秒）
 
 # ===== 硬件指纹 =====
@@ -248,8 +256,9 @@ if __name__ == '__main__':
 }
 
 // 生成 C# 客户端
-function genCSharp(appKey: string, appSecret: string, apiBase: string, opts: ClientGenOptions): string {
+function genCSharp(cfg: ObfuscatedConfig, opts: ClientGenOptions): string {
   const name = opts.appName || 'MyApp';
+  const snip = decryptionSnippets(cfg.appKey);
   return `// ${name} - CDK 卡密验证客户端
 // ${opts.appDescription || '自动生成的验证客户端'}
 // 版本: ${opts.appVersion || '1.0.0'}
@@ -275,9 +284,16 @@ namespace ${name.replace(/ /g, '')}
 {
     class Program
     {
-        static readonly string APP_KEY = "${appKey}";
-        static readonly string APP_SECRET = "${appSecret}";
-        static readonly string API_BASE = "${apiBase}";
+        // ===== 加密常量（运行时解密） =====
+        ${snip.csharp}
+
+        static readonly string _APP_KEY_ENC = "${cfg.appKeyEnc}";
+        static readonly string _APP_SECRET_ENC = "${cfg.appSecretEnc}";
+        static readonly string _API_BASE_ENC = "${cfg.apiBaseEnc}";
+
+        static readonly string APP_KEY = _d(_APP_KEY_ENC);
+        static readonly string APP_SECRET = _d(_APP_SECRET_ENC);
+        static readonly string API_BASE = _d(_API_BASE_ENC);
         static readonly int HEARTBEAT_INTERVAL = 60;
         static readonly HttpClient http = new HttpClient();
         static string stateFile = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "cdk_state.dat");
@@ -467,8 +483,9 @@ namespace ${name.replace(/ /g, '')}
 }
 
 // 生成 Java 客户端
-function genJava(appKey: string, appSecret: string, apiBase: string, opts: ClientGenOptions): string {
+function genJava(cfg: ObfuscatedConfig, opts: ClientGenOptions): string {
   const name = (opts.appName || 'MyApp').replace(/\s/g, '');
+  const snip = decryptionSnippets(cfg.appKey);
   return `// ${name}.java - CDK 卡密验证客户端
 // ${opts.appDescription || '自动生成的验证客户端'}
 // 版本: ${opts.appVersion || '1.0.0'}
@@ -491,13 +508,30 @@ import java.util.*;
 import java.util.concurrent.*;
 
 public class ${name} {
-    private static final String APP_KEY = "${appKey}";
-    private static final String APP_SECRET = "${appSecret}";
-    private static final String API_BASE = "${apiBase}";
+    // ===== 加密常量（运行时解密） =====
+    ${snip.java}
+
+    private static final String _APP_KEY_ENC = "${cfg.appKeyEnc}";
+    private static final String _APP_SECRET_ENC = "${cfg.appSecretEnc}";
+    private static final String _API_BASE_ENC = "${cfg.apiBaseEnc}";
+
+    private static final String APP_KEY = _d(_APP_KEY_ENC);
+    private static final String APP_SECRET = _d(_APP_SECRET_ENC);
+    private static final String API_BASE = _d(_API_BASE_ENC);
     private static final int HEARTBEAT_INTERVAL = 60;
     private static final HttpClient http = HttpClient.newHttpClient();
     private static final Gson gson = new Gson();
     private static final String STATE_FILE = "cdk_state.dat";
+
+    private static byte[] hexToBytes(String hex) {
+        int len = hex.length();
+        byte[] data = new byte[len / 2];
+        for (int i = 0; i < len; i += 2) {
+            data[i / 2] = (byte) ((Character.digit(hex.charAt(i), 16) << 4)
+                                 + Character.digit(hex.charAt(i + 1), 16));
+        }
+        return data;
+    }
 
     private static String getHardwareInfo() throws Exception {
         StringBuilder sb = new StringBuilder();
@@ -647,14 +681,15 @@ public class ${name} {
 }
 
 // 生成 Go 客户端
-function genGo(appKey: string, appSecret: string, apiBase: string, opts: ClientGenOptions): string {
+function genGo(cfg: ObfuscatedConfig, opts: ClientGenOptions): string {
   const name = opts.appName || 'myapp';
+  const snip = decryptionSnippets(cfg.appKey);
   return `// ${name} - CDK 卡密验证客户端
 // ${opts.appDescription || '自动生成的验证客户端'}
 // 版本: ${opts.appVersion || '1.0.0'}
 //
 // 编译: go build -o ${name} client.go
-// 交叉编译 Windows: GOOS=windows GOARCH=amd64 go build -o ${name}.exe client.go
+// 交叉编译 Windows: GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build -ldflags="-s -w" -o ${name}.exe client.go
 
 package main
 
@@ -678,10 +713,22 @@ import (
 	"time"
 )
 
+// ===== 加密常量（运行时解密） =====
+${snip.go}
+
 const (
-	appKey            = "${appKey}"
-	appSecret         = "${appSecret}"
-	apiBase           = "${apiBase}"
+	appKeyEnc    = "${cfg.appKeyEnc}"
+	appSecretEnc = "${cfg.appSecretEnc}"
+	apiBaseEnc   = "${cfg.apiBaseEnc}"
+)
+
+var (
+	appKey    = _d(appKeyEnc)
+	appSecret = _d(appSecretEnc)
+	apiBase   = _d(apiBaseEnc)
+)
+
+const (
 	heartbeatInterval = 60
 	stateFile         = "cdk_state.dat"
 )
@@ -858,8 +905,9 @@ func main() {
 }
 
 // 生成 Node.js 客户端
-function genNodeJS(appKey: string, appSecret: string, apiBase: string, opts: ClientGenOptions): string {
+function genNodeJS(cfg: ObfuscatedConfig, opts: ClientGenOptions): string {
   const name = opts.appName || 'myapp';
+  const snip = decryptionSnippets(cfg.appKey);
   return `// ${name} - CDK 卡密验证客户端
 // ${opts.appDescription || '自动生成的验证客户端'}
 // 版本: ${opts.appVersion || '1.0.0'}
@@ -873,9 +921,16 @@ const os = require('os');
 const { execSync } = require('child_process');
 const readline = require('readline');
 
-const APP_KEY = '${appKey}';
-const APP_SECRET = '${appSecret}';
-const API_BASE = '${apiBase}';
+// ===== 加密常量（运行时解密） =====
+${snip.nodejs}
+
+const _APP_KEY_ENC = '${cfg.appKeyEnc}';
+const _APP_SECRET_ENC = '${cfg.appSecretEnc}';
+const _API_BASE_ENC = '${cfg.apiBaseEnc}';
+
+const APP_KEY = _d(_APP_KEY_ENC);
+const APP_SECRET = _d(_APP_SECRET_ENC);
+const API_BASE = _d(_API_BASE_ENC);
 const HEARTBEAT_INTERVAL = 60;
 const STATE_FILE = 'cdk_state.dat';
 
@@ -1014,8 +1069,9 @@ main();
 }
 
 // 生成 Rust 客户端
-function genRust(appKey: string, appSecret: string, apiBase: string, opts: ClientGenOptions): string {
+function genRust(cfg: ObfuscatedConfig, opts: ClientGenOptions): string {
   const name = (opts.appName || 'myapp').replace(/\s/g, '_').toLowerCase();
+  const snip = decryptionSnippets(cfg.appKey);
   return `// ${name} - CDK 卡密验证客户端
 // ${opts.appDescription || '自动生成的验证客户端'}
 // 版本: ${opts.appVersion || '1.0.0'}
@@ -1056,12 +1112,24 @@ use reqwest::blocking::Client;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use sha2::{Sha256, Digest};
+use hex;
+use lazy_static::lazy_static;
 
 type HmacSha256 = Hmac<Sha256>;
 
-const APP_KEY: &str = "${appKey}";
-const APP_SECRET: &str = "${appSecret}";
-const API_BASE: &str = "${apiBase}";
+// ===== 加密常量（运行时解密） =====
+${snip.rust}
+
+const APP_KEY_ENC: &str = "${cfg.appKeyEnc}";
+const APP_SECRET_ENC: &str = "${cfg.appSecretEnc}";
+const API_BASE_ENC: &str = "${cfg.apiBaseEnc}";
+
+lazy_static::lazy_static! {
+    static ref APP_KEY: String = _d(APP_KEY_ENC);
+    static ref APP_SECRET: String = _d(APP_SECRET_ENC);
+    static ref API_BASE: String = _d(API_BASE_ENC);
+}
+
 const HEARTBEAT_INTERVAL: u64 = 60;
 const STATE_FILE: &str = "cdk_state.dat";
 
@@ -1214,7 +1282,9 @@ fn main() {
 }
 
 // 语言模板映射
-const TEMPLATES: Record<ClientLang, (appKey: string, appSecret: string, apiBase: string, opts: ClientGenOptions) => string> = {
+type TemplateFn = (cfg: ObfuscatedConfig, opts: ClientGenOptions) => string;
+
+const TEMPLATES: Record<ClientLang, TemplateFn> = {
   python: genPython,
   csharp: genCSharp,
   java: genJava,
@@ -1255,6 +1325,7 @@ export function generateClientCode(
   apiBase: string,
   opts: ClientGenOptions,
 ): string {
+  const cfg = obfuscateConfig(appKey, appSecret, apiBase);
   const gen = TEMPLATES[opts.lang];
-  return gen(appKey, appSecret, apiBase, opts);
+  return gen(cfg, opts);
 }

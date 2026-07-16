@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import { authMiddleware, requireRole } from '../middleware/auth';
 import * as programService from '../services/program';
 import { generateClientCode, LANG_META, CLIENT_LANGUAGES } from '../services/client';
+import { buildClient, getBuildCapabilities } from '../services/build';
 import { success, fail, serverError } from '../utils/response';
 import { ErrorCode } from '../types';
 
@@ -254,6 +255,34 @@ router.put('/:id/announcement', async (req: Request, res: Response) => {
   }
 });
 
+// 预览客户端源码（选择语言后实时展示）
+router.get('/:id/client/preview', async (req: Request, res: Response) => {
+  try {
+    const lang = req.query.lang as string;
+    if (!lang || !CLIENT_LANGUAGES.includes(lang)) {
+      fail(res, ErrorCode.INVALID_INPUT, '无效的语言类型');
+      return;
+    }
+    const program = await programService.getProgramIntegration(req.ctx!.userId, req.ctx!.role, req.params.id);
+    if (program.code !== 0 || !program.data) {
+      fail(res, program.code, program.message, 404);
+      return;
+    }
+    const apiBase = process.env.FRONTEND_URL || process.env.API_BASE || `http://localhost:${process.env.PORT || 3000}`;
+    const code = generateClientCode(program.data.appKey, program.data.appSecret, `${apiBase}/api`, {
+      lang,
+      appName: 'MyApp',
+      appVersion: '1.0.0',
+      appDescription: 'CDK 卡密验证客户端',
+    });
+    const meta = LANG_META[lang as keyof typeof LANG_META];
+    success(res, { code, filename: `MyApp${meta.ext}`, lang: meta.label });
+  } catch (e: any) {
+    console.error('[GET /:id/client/preview]', e.message);
+    serverError(res);
+  }
+});
+
 // 生成客户端代码
 router.post('/:id/client', async (req: Request, res: Response) => {
   try {
@@ -278,6 +307,62 @@ router.post('/:id/client', async (req: Request, res: Response) => {
     success(res, { code, filename: `${appName || 'client'}${meta.ext}`, lang: meta.label });
   } catch (e: any) {
     console.error('[POST /:id/client]', e.message);
+    serverError(res);
+  }
+});
+
+// 获取编译能力（哪些语言支持在线打包）
+router.get('/:id/client/build/capabilities', async (req: Request, res: Response) => {
+  try {
+    const caps = getBuildCapabilities();
+    success(res, caps);
+  } catch (e: any) {
+    console.error('[GET /build/capabilities]', e.message);
+    serverError(res);
+  }
+});
+
+// 在线编译客户端为 EXE
+router.post('/:id/client/build', async (req: Request, res: Response) => {
+  try {
+    const { lang, appName, appVersion, appDescription } = req.body;
+    if (!lang || !CLIENT_LANGUAGES.includes(lang)) {
+      fail(res, ErrorCode.INVALID_INPUT, '无效的语言类型');
+      return;
+    }
+    const program = await programService.getProgramIntegration(req.ctx!.userId, req.ctx!.role, req.params.id);
+    if (program.code !== 0 || !program.data) {
+      fail(res, program.code, program.message, 404);
+      return;
+    }
+    const apiBase = process.env.FRONTEND_URL || process.env.API_BASE || `http://localhost:${process.env.PORT || 3000}`;
+    const code = generateClientCode(program.data.appKey, program.data.appSecret, `${apiBase}/api`, {
+      lang,
+      appName,
+      appVersion,
+      appDescription,
+    });
+
+    const result = buildClient(lang, code, appName || 'client');
+
+    if (result.success && result.buffer) {
+      // 返回编译好的 EXE 文件
+      res.setHeader('Content-Type', result.mimeType || 'application/octet-stream');
+      res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(result.filename || 'client.exe')}"`);
+      res.setHeader('Content-Length', result.buffer.length);
+      res.send(result.buffer);
+    } else {
+      // 返回错误信息 + 构建脚本
+      success(res, {
+        built: false,
+        error: result.error,
+        buildScript: result.buildScript || null,
+        scriptLang: result.scriptLang || null,
+        buildLog: result.buildLog || null,
+      });
+    }
+  } catch (e: any) {
+    console.error('[POST /:id/client/build]', e.message);
     serverError(res);
   }
 });
