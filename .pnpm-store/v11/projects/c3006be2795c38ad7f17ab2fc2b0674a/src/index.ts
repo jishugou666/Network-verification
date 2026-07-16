@@ -62,7 +62,7 @@ app.post('/api/geoip', async (req, res) => {
       ips.map(async (ip: string) => {
         try {
           const resp = await fetch(`http://ip-api.com/json/${encodeURIComponent(ip)}?fields=country,countryCode,regionName,city,lat,lon,query&lang=zh-CN`);
-          const data = await resp.json();
+          const data = await resp.json() as any;
           return {
             ip: data.query || ip,
             country: data.country || '-',
