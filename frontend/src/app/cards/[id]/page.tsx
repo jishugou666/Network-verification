@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { cardApi } from '@/lib/api';
 
@@ -26,6 +26,140 @@ function formatDuration(sec: number) {
   if (hours < 24) return `${hours}小时`;
   const days = Math.floor(hours / 24);
   return `${days}天 ${hours % 24}小时`;
+}
+
+interface IPLocation {
+  ip: string;
+  city: string;
+  region: string;
+  country: string;
+  lat: number;
+  lon: number;
+}
+
+// IP 地理位置地图组件
+function IPLocationMap({ ips }: { ips: string[] }) {
+  const mapContainerRef = useRef<HTMLDivElement>(null);
+  const mapRef = useRef<any>(null);
+  const [locations, setLocations] = useState<IPLocation[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    const uniqueIps = [...new Set(ips.filter(ip => ip && ip !== '127.0.0.1' && ip !== '::1'))];
+    if (uniqueIps.length === 0) { setLoading(false); return; }
+
+    Promise.all(
+      uniqueIps.map(ip =>
+        fetch(`https://ipapi.co/${ip}/json/`)
+          .then(r => r.json())
+          .then(d => ({
+            ip,
+            city: d.city || '-',
+            region: d.region || '-',
+            country: d.country_name || '-',
+            lat: d.latitude || 0,
+            lon: d.longitude || 0,
+          }))
+          .catch(() => ({ ip, city: '-', region: '-', country: '-', lat: 0, lon: 0 }))
+      )
+    ).then(results => {
+      const valid = results.filter(l => l.lat !== 0 && l.lon !== 0);
+      setLocations(valid);
+      setLoading(false);
+    });
+  }, [ips]);
+
+  // 初始化 Leaflet 地图
+  useEffect(() => {
+    if (locations.length === 0 || !mapContainerRef.current) return;
+
+    // 动态加载 Leaflet
+    const loadLeaflet = async () => {
+      if (typeof window === 'undefined') return;
+      // @ts-ignore
+      if (window.L) {
+        initMap();
+        return;
+      }
+
+      // 加载 CSS
+      const link = document.createElement('link');
+      link.rel = 'stylesheet';
+      link.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
+      document.head.appendChild(link);
+
+      // 加载 JS
+      const script = document.createElement('script');
+      script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
+      script.onload = () => initMap();
+      document.head.appendChild(script);
+    };
+
+    const initMap = () => {
+      if (mapRef.current) return;
+      // @ts-ignore
+      const L = window.L;
+      if (!L || !mapContainerRef.current) return;
+
+      const map = L.map(mapContainerRef.current).setView([locations[0].lat, locations[0].lon], 4);
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; OpenStreetMap contributors',
+        maxZoom: 18,
+      }).addTo(map);
+
+      const bounds = L.latLngBounds([]);
+      locations.forEach(loc => {
+        const marker = L.marker([loc.lat, loc.lon])
+          .bindPopup(`<b>${loc.city}, ${loc.region}</b><br/>${loc.country}<br/><code>${loc.ip}</code>`)
+          .addTo(map);
+        bounds.extend(marker.getLatLng());
+      });
+
+      if (locations.length > 1) {
+        map.fitBounds(bounds, { padding: [30, 30] });
+      }
+
+      mapRef.current = map;
+    };
+
+    loadLeaflet();
+
+    return () => {
+      if (mapRef.current) {
+        mapRef.current.remove();
+        mapRef.current = null;
+      }
+    };
+  }, [locations]);
+
+  if (loading) {
+    return <div className="h-[300px] flex items-center justify-center bg-gray-50 rounded-xl border border-gray-100">
+      <div className="flex flex-col items-center gap-2">
+        <div className="w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+        <span className="text-xs text-gray-400">正在获取位置信息...</span>
+      </div>
+    </div>;
+  }
+
+  if (locations.length === 0) {
+    return <div className="h-[300px] flex items-center justify-center bg-gray-50 rounded-xl border border-gray-100 text-gray-400 text-sm">暂无有效位置数据</div>;
+  }
+
+  return (
+    <div>
+      <div ref={mapContainerRef} className="h-[300px] rounded-xl border border-gray-100 z-0" />
+      <div className="flex flex-wrap gap-2 mt-3">
+        {locations.map((loc, i) => (
+          <span key={i} className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-gray-50 border border-gray-100 text-xs">
+            <span className="w-1.5 h-1.5 rounded-full bg-blue-500" />
+            {loc.city}, {loc.country}
+            <code className="text-gray-400 ml-1">{loc.ip}</code>
+          </span>
+        ))}
+      </div>
+    </div>
+  );
 }
 
 export default function CardDetailPage() {
@@ -55,6 +189,12 @@ export default function CardDetailPage() {
     );
   }
 
+  // 收集所有 IP 用于地图
+  const allIps: string[] = [];
+  if (data.endUser?.lastIp) allIps.push(data.endUser.lastIp);
+  data.endUser?.devices?.forEach((d: any) => { if (d.ip) allIps.push(d.ip); });
+  data.verifyLogs?.forEach((log: any) => { if (log.ip) allIps.push(log.ip); });
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -80,7 +220,7 @@ export default function CardDetailPage() {
           </div>
           <div>
             <span className="text-gray-500">前缀</span>
-            <p className="font-medium font-mono">{data.cardPrefix || '-'}</p>
+            <p className="font-medium font-mono truncate">{data.cardPrefix || '-'}</p>
           </div>
           <div>
             <span className="text-gray-500">卡密明文</span>
@@ -88,7 +228,7 @@ export default function CardDetailPage() {
           </div>
           <div>
             <span className="text-gray-500">备注</span>
-            <p className="font-medium">{data.note || '-'}</p>
+            <p className="font-medium truncate">{data.note || '-'}</p>
           </div>
           <div>
             <span className="text-gray-500">生成时间</span>
@@ -108,7 +248,7 @@ export default function CardDetailPage() {
           </div>
           <div>
             <span className="text-gray-500">封禁原因</span>
-            <p className="font-medium">{data.bannedReason || '-'}</p>
+            <p className="font-medium truncate">{data.bannedReason || '-'}</p>
           </div>
         </div>
       </div>
@@ -139,7 +279,7 @@ export default function CardDetailPage() {
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
             <div>
               <span className="text-gray-500">用户名</span>
-              <p className="font-medium">{data.endUser.username}</p>
+              <p className="font-medium font-mono text-xs truncate max-w-[180px]" title={data.endUser.username}>{data.endUser.username}</p>
             </div>
             <div>
               <span className="text-gray-500">状态</span>
@@ -162,6 +302,14 @@ export default function CardDetailPage() {
           <p className="text-gray-400 text-sm">未绑定用户</p>
         )}
       </div>
+
+      {/* Login Location Map */}
+      {allIps.length > 0 && (
+        <div className="glass p-6">
+          <h2 className="text-lg font-semibold mb-4 text-gray-800">登录位置</h2>
+          <IPLocationMap ips={allIps} />
+        </div>
+      )}
 
       {/* Devices */}
       <div className="glass-table">

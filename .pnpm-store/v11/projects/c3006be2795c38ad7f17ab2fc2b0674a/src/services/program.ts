@@ -87,6 +87,7 @@ export async function updateProgram(agentId: string, role: string, programId: st
       ...(data.maxDevices !== undefined && { maxDevices: data.maxDevices }),
       ...(data.allowReActivate !== undefined && { allowReActivate: data.allowReActivate }),
       ...(data.heartbeatTimeout !== undefined && { heartbeatTimeout: data.heartbeatTimeout }),
+      ...(data.announcement !== undefined && { announcement: data.announcement }),
     },
   });
 
@@ -260,6 +261,7 @@ export async function getProgramIntegration(agentId: string, role: string, progr
       scriptPreview: true,
       scriptEnabled: true,
       scriptSize: true,
+      announcement: true,
     },
   });
 
@@ -280,6 +282,7 @@ export async function getProgramIntegration(agentId: string, role: string, progr
       scriptEnabled: program.scriptEnabled,
       scriptPreview: program.scriptPreview,
       scriptSize: program.scriptSize,
+      announcement: program.announcement,
     },
   };
 }

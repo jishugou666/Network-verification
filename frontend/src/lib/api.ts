@@ -73,6 +73,9 @@ export const programApi = {
   disableScript: (id: string) => api.delete<any>(`/programs/${id}/script`),
   obfuscate: (code: string) => api.post<any>('/programs/obfuscate', { code }),
   reobfuscate: (id: string) => api.post<any>(`/programs/${id}/reobfuscate`),
+  updateAnnouncement: (id: string, announcement: string) => api.put<any>(`/programs/${id}/announcement`, { announcement }),
+  getLanguages: () => api.get<any[]>('/programs/languages'),
+  generateClient: (id: string, data: { lang: string; appName?: string; appVersion?: string; appDescription?: string }) => api.post<any>(`/programs/${id}/client`, data),
   getUIConfig: (id: string) => api.get<any>(`/programs/${id}/ui-config`),
   updateUIConfig: (id: string, config: any) => api.put<any>(`/programs/${id}/ui-config`, config),
 };

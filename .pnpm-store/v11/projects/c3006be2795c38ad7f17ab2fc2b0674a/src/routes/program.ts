@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { authMiddleware, requireRole } from '../middleware/auth';
 import * as programService from '../services/program';
+import { generateClientCode, LANG_META, CLIENT_LANGUAGES } from '../services/client';
 import { success, fail, serverError } from '../utils/response';
 import { ErrorCode } from '../types';
 
@@ -199,6 +200,22 @@ router.post('/:id/reobfuscate', async (req: Request, res: Response) => {
   }
 });
 
+// 更新公告
+router.put('/:id/announcement', async (req: Request, res: Response) => {
+  try {
+    const { announcement } = req.body;
+    const result = await programService.updateProgram(req.ctx!.userId, req.ctx!.role, req.params.id, { announcement });
+    if (result.code === 0) {
+      success(res, result.data, result.message);
+    } else {
+      fail(res, result.code, result.message, 404);
+    }
+  } catch (e: any) {
+    console.error('[PUT /:id/announcement]', e.message);
+    serverError(res);
+  }
+});
+
 // 混淆脚本代码
 router.post('/obfuscate', async (req: Request, res: Response) => {
   try {
@@ -215,6 +232,48 @@ router.post('/obfuscate', async (req: Request, res: Response) => {
     }
   } catch (e: any) {
     console.error('[POST /api/programs/obfuscate]', e.message);
+    serverError(res);
+  }
+});
+
+// 获取支持的语言列表
+router.get('/languages', (_req: Request, res: Response) => {
+  try {
+    const langs = CLIENT_LANGUAGES.map(lang => ({
+      id: lang,
+      ...LANG_META[lang],
+    }));
+    success(res, langs);
+  } catch (e: any) {
+    console.error('[GET /languages]', e.message);
+    serverError(res);
+  }
+});
+
+// 生成客户端代码
+router.post('/:id/client', async (req: Request, res: Response) => {
+  try {
+    const { lang, appName, appVersion, appDescription } = req.body;
+    if (!lang || !CLIENT_LANGUAGES.includes(lang)) {
+      fail(res, ErrorCode.INVALID_INPUT, '无效的语言类型');
+      return;
+    }
+    const program = await programService.getProgramIntegration(req.ctx!.userId, req.ctx!.role, req.params.id);
+    if (program.code !== 0) {
+      fail(res, program.code, program.message, 404);
+      return;
+    }
+    const apiBase = process.env.FRONTEND_URL || process.env.API_BASE || `http://localhost:${process.env.PORT || 3000}`;
+    const code = generateClientCode(program.data.appKey, program.data.appSecret, `${apiBase}/api`, {
+      lang,
+      appName,
+      appVersion,
+      appDescription,
+    });
+    const meta = LANG_META[lang];
+    success(res, { code, filename: `${appName || 'client'}${meta.ext}`, lang: meta.label });
+  } catch (e: any) {
+    console.error('[POST /:id/client]', e.message);
     serverError(res);
   }
 });

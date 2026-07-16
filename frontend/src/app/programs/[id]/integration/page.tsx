@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
 import { programApi } from '@/lib/api';
 
@@ -2855,6 +2855,7 @@ fi
 
 export default function IntegrationPage() {
   const params = useParams();
+  const router = useRouter();
   const id = params.id as string;
   const [program, setProgram] = useState<{ name: string; appKey: string; appSecret: string } | null>(null);
   const [loading, setLoading] = useState(true);
@@ -2870,6 +2871,8 @@ export default function IntegrationPage() {
   const [scriptSize, setScriptSize] = useState(0);
   const [uiConfig, setUiConfig] = useState<any>(null);
   const [savingConfig, setSavingConfig] = useState(false);
+  const [announcement, setAnnouncement] = useState('');
+  const [announcementSaving, setAnnouncementSaving] = useState(false);
 
   useEffect(() => {
     programApi.getIntegration(id).then(res => {
@@ -2878,6 +2881,7 @@ export default function IntegrationPage() {
         setScriptEnabled(res.data.scriptEnabled || false);
         setScriptPreview(res.data.scriptPreview || '');
         setScriptSize(res.data.scriptSize || 0);
+        setAnnouncement(res.data.announcement || '');
       } else {
         toast.error(res.message);
       }
@@ -3022,6 +3026,19 @@ export default function IntegrationPage() {
       }
     } catch { toast.error('保存失败'); }
     finally { setSavingConfig(false); }
+  };
+
+  const handleSaveAnnouncement = async () => {
+    setAnnouncementSaving(true);
+    try {
+      const res = await programApi.updateAnnouncement(id, announcement);
+      if (res.code === 0) {
+        toast.success('公告已保存');
+      } else {
+        toast.error(res.message);
+      }
+    } catch { toast.error('保存失败'); }
+    finally { setAnnouncementSaving(false); }
   };
 
   const handleCopy = useCallback(() => {
@@ -3188,6 +3205,35 @@ export default function IntegrationPage() {
         )}
       </div>
 
+      {/* 公告编辑 */}
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 mb-6">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h3 className="text-sm font-semibold text-gray-800">程序公告</h3>
+            <p className="text-xs text-gray-400 mt-0.5">在验证界面显示公告，支持 Markdown 格式</p>
+          </div>
+          <button
+            onClick={handleSaveAnnouncement}
+            disabled={announcementSaving}
+            className="px-4 py-2 text-xs font-medium text-white bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 rounded-lg shadow-sm transition-all disabled:opacity-50"
+          >
+            {announcementSaving ? '保存中...' : '保存公告'}
+          </button>
+        </div>
+        <textarea
+          className="w-full h-32 px-4 py-3 text-sm border border-gray-200 rounded-xl bg-white outline-none transition-all focus:border-amber-400 focus:ring-4 focus:ring-amber-50 text-gray-700 placeholder-gray-300 resize-none"
+          placeholder="输入公告内容，支持 Markdown 格式&#10;&#10;例如：&#10;# 系统维护通知&#10;本系统将于今晚 22:00 进行维护升级，预计持续 2 小时。"
+          value={announcement}
+          onChange={e => setAnnouncement(e.target.value)}
+        />
+        {announcement && (
+          <div className="mt-3 p-3 bg-amber-50 border border-amber-200 rounded-xl">
+            <div className="text-xs font-medium text-amber-700 mb-1">预览</div>
+            <div className="text-xs text-amber-800 whitespace-pre-wrap">{announcement}</div>
+          </div>
+        )}
+      </div>
+
       {/* UI 定制面板 */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 mb-6">
         <div className="flex items-center justify-between mb-5">
@@ -3208,7 +3254,13 @@ export default function IntegrationPage() {
                disabled={!program}
                className="px-4 py-2 text-xs font-medium text-white bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 rounded-lg shadow-sm transition-all disabled:opacity-50"
              >
-               下载客户端
+               下载 JS 客户端
+             </button>
+             <button
+               onClick={() => router.push(`/programs/${id}/client`)}
+               className="px-4 py-2 text-xs font-medium text-white bg-gradient-to-r from-purple-500 to-pink-600 hover:from-purple-600 hover:to-pink-700 rounded-lg shadow-sm transition-all"
+             >
+               多语言客户端
              </button>
            </div>
         </div>

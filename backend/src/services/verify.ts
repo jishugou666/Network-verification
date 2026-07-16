@@ -23,7 +23,7 @@ export async function getChallenge(appKey: string) {
     data: { programId: program.id, challenge },
   });
 
-  return { code: 0, message: 'ok', data: { challenge } };
+  return { code: 0, message: 'ok', data: { challenge, announcement: program.announcement || null } };
 }
 
 // ==================== 卡密激活（优化版） ====================
